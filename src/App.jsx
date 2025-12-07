@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ErrorBoundary from './components/ErrorBoundary';
-import ErrorBoundary from './components/ErrorBoundary'; // Assuming ErrorBoundary is in this path
+
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
