@@ -149,10 +149,16 @@ h6 {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  /* Align to top instead of center */
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
+  /* Ensure it's above everything including clock/toasts */
   backdrop-filter: blur(4px);
+  padding-top: 5vh;
+  /* Small offset from top */
+  overflow-y: auto;
+  /* Allow scrolling if modal is tall */
 }
 
 .modal-content {

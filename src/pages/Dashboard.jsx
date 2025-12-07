@@ -108,9 +108,14 @@ export default function Dashboard() {
             return;
         }
 
-        pdfGenerator.generateReport(records, type, user.name, reportMonth);
-        setToast(`${type === 'total' ? 'Full' : 'Monthly'} Report Downloaded!`);
-        setShowReportModal(false);
+        try {
+            pdfGenerator.generateReport(records, type, user.name, reportMonth);
+            setToast(`${type === 'total' ? 'Full' : 'Monthly'} Report Downloaded!`);
+            setShowReportModal(false);
+        } catch (error) {
+            console.error("PDF Generation Error:", error);
+            setToast("Error generating PDF. Please try again.");
+        }
     };
 
     return (
