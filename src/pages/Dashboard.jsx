@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../utils/storage';
 import { timeUtils } from '../utils/time';
+import { pdfGenerator } from '../utils/pdfGenerator';
 import Scanner from '../components/Scanner';
 import Modal from '../components/Modal';
 import MeltingClock from '../components/MeltingClock';
 import { QRCodeCanvas } from 'qrcode.react';
-import { LogOut, QrCode, Clock, Calendar, AlertCircle, Scan, CheckCircle2, Settings } from 'lucide-react';
+import { LogOut, QrCode, Clock, Calendar, AlertCircle, Scan, CheckCircle2, Settings, FileText, Download } from 'lucide-react';
 
 const THEME_COLORS = [
     { name: 'Blue', value: '#2563eb' },
@@ -22,6 +23,8 @@ export default function Dashboard() {
     const [isScanning, setIsScanning] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
     const [records, setRecords] = useState([]);
     const [currentRecord, setCurrentRecord] = useState(null);
     const [weeklyMinutes, setWeeklyMinutes] = useState(0);
@@ -99,6 +102,17 @@ export default function Dashboard() {
         localStorage.setItem('theme-primary', color);
     };
 
+    const handleDownloadReport = (type) => {
+        if (records.length === 0) {
+            setToast("No records to export!");
+            return;
+        }
+
+        pdfGenerator.generateReport(records, type, user.name, reportMonth);
+        setToast(`${type === 'total' ? 'Full' : 'Monthly'} Report Downloaded!`);
+        setShowReportModal(false);
+    };
+
     return (
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
 
@@ -122,6 +136,9 @@ export default function Dashboard() {
                     <button onClick={() => setShowQRModal(true)} className="btn btn-secondary" title="Show My QR Code">
                         <QrCode size={18} />
                         <span style={{ marginLeft: '0.5rem', display: 'none', '@media (min-width: 640px)': { display: 'inline' } }}>My Code</span>
+                    </button>
+                    <button onClick={() => setShowReportModal(true)} className="btn btn-secondary" title="Download Reports">
+                        <FileText size={18} />
                     </button>
                     <button onClick={() => setShowSettingsModal(true)} className="btn btn-secondary" title="Customize App">
                         <Settings size={18} />
@@ -283,6 +300,67 @@ export default function Dashboard() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         ID: {user?.id}
                     </p>
+                </div>
+            </Modal>
+
+            {/* Reports Modal - NEW */}
+            <Modal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                title="Download Work Reports"
+            >
+                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+                    {/* Option 1: Full History */}
+                    <div style={{ paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <FileText size={18} color="var(--primary)" />
+                            Complete History
+                        </h4>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            Download a PDF containing all your work logs from the beginning.
+                        </p>
+                        <button
+                            onClick={() => handleDownloadReport('total')}
+                            className="btn btn-secondary"
+                            style={{ width: '100%', justifyContent: 'center' }}
+                        >
+                            <Download size={18} style={{ marginRight: '0.5rem' }} />
+                            Download Full Report
+                        </button>
+                    </div>
+
+                    {/* Option 2: Monthly */}
+                    <div>
+                        <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Calendar size={18} color="var(--primary)" />
+                            Monthly Report
+                        </h4>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            Select a specific month to export.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <input
+                                type="month"
+                                value={reportMonth}
+                                onChange={(e) => setReportMonth(e.target.value)}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.5rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--border)',
+                                    fontSize: '1rem'
+                                }}
+                            />
+                            <button
+                                onClick={() => handleDownloadReport('month')}
+                                className="btn btn-primary"
+                                style={{ whiteSpace: 'nowrap' }}
+                            >
+                                <Download size={18} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </Modal>
 
