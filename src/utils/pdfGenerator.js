@@ -1,16 +1,18 @@
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { timeUtils } from './time';
 
 export const pdfGenerator = {
     generateReport: (records, type = 'total', userName = 'Employee', selectedMonth = null) => {
+        // 1. Initialize Document
         const doc = new jsPDF();
+
         const now = new Date();
         const title = type === 'total'
             ? `Total Work Report - ${userName}`
             : `Monthly Work Report (${selectedMonth}) - ${userName}`;
 
-        // 1. Filter Data
+        // 2. Filter Data
         let filteredRecords = records.filter(r => r.checkOut); // Only completed sessions
 
         if (type === 'month' && selectedMonth) {
@@ -21,7 +23,7 @@ export const pdfGenerator = {
             });
         }
 
-        // 2. Calculate Totals
+        // 3. Calculate Totals
         let totalMinutes = 0;
         const tableRows = filteredRecords.map(r => {
             const date = timeUtils.formatDate(r.checkIn);
@@ -35,7 +37,7 @@ export const pdfGenerator = {
             return [date, start, end, durationStr];
         });
 
-        // 3. Document Header
+        // 4. Document Header
         doc.setFontSize(18);
         doc.text(title, 14, 20);
 
@@ -45,8 +47,8 @@ export const pdfGenerator = {
         doc.text(`Total Records: ${filteredRecords.length}`, 14, 37);
         doc.text(`Total Hours Worked: ${timeUtils.formatDuration(totalMinutes)}`, 14, 44);
 
-        // 4. Draw Table
-        doc.autoTable({
+        // 5. Draw Table (Safe functional usage)
+        autoTable(doc, {
             startY: 55,
             head: [['Date', 'Start Time', 'End Time', 'Duration']],
             body: tableRows,
@@ -55,7 +57,7 @@ export const pdfGenerator = {
             alternateRowStyles: { fillColor: [245, 245, 245] }
         });
 
-        // 5. Save
+        // 6. Save
         const fileName = `${userName.replace(/\s+/g, '_')}_${type}_Report.pdf`;
         doc.save(fileName);
     }
