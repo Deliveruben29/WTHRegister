@@ -11,167 +11,310 @@ export default function MeltingClock({ isWorking }) {
         let animationFrameId;
 
         // Configuration
-        const width = 300;
+        const width = 350; // Wider for better detail
         const height = window.innerHeight;
         canvas.width = width;
         canvas.height = height;
 
-        let drops = [];
-        let lastMinute = new Date().getMinutes();
+        const centerX = width / 2;
+        const clockY = height * 0.25;
+        const radius = 90;
+
+        // State for falling numerals/markers
+        let fallingItems = [];
+        let lastSecond = new Date().getSeconds();
         let fluidLevel = 0;
 
-        // Clock aesthetic
-        const centerX = width / 2;
-        const centerY = height * 0.2; // Top 20%
-        const radius = 80;
+        // Pre-calculate randomized distortion for the "melting" shape static part
+        // To make it look like a consistent object, we use a fixed noise-like pattern
+        const distortionPoints = [];
+        for (let i = 0; i <= Math.PI * 2; i += 0.1) {
+            // Strong distortion at the bottom (PI/2 is bottom in normal circle terms, but we start 0 at right)
+            // 0=Right, PI/2=Bottom, PI=Left, 3PI/2=Top
+            let r = radius;
+            if (i > 0.5 && i < 2.5) { // Bottom right to bottom left roughly
+                r += Math.sin(i * 3) * 10 + 20; // Melt downwards
+            }
+            distortionPoints.push({ angle: i, r });
+        }
 
         const render = () => {
             if (!ctx) return;
             ctx.clearRect(0, 0, width, height);
 
             const now = new Date();
-            const seconds = now.getSeconds();
-            const minutes = now.getMinutes();
-            const hours = now.getHours();
+            const sec = now.getSeconds();
+            const min = now.getMinutes();
+            const hr = now.getHours();
             const millis = now.getMilliseconds();
+            const smoothSec = sec + millis / 1000;
 
-            // 1. Draw Clepsydra Base (The pool) at the bottom
-            const poolY = height - 100;
+            // --- 3. Draw Clepsidra (The Vessel) ---
+            const vesselY = height - 150;
+            const vesselWidth = 100;
 
-            // Draw glass container for pool
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 2;
+            // Draw Fluid
+            // Fill level based on minutes passed in hour
+            const maxFill = 80;
+            const currentFill = (min / 60) * maxFill;
+            fluidLevel += (currentFill - fluidLevel) * 0.05;
+
+            // Fluid glow
+            const fluidGrad = ctx.createLinearGradient(centerX, vesselY + 100, centerX, vesselY + 100 - fluidLevel);
+            fluidGrad.addColorStop(0, '#DAA520'); // Goldenrod
+            fluidGrad.addColorStop(1, '#FFD700'); // Gold
+
+            ctx.fillStyle = fluidGrad;
             ctx.beginPath();
-            ctx.moveTo(centerX - 70, height);
-            ctx.lineTo(centerX - 70, poolY);
-            ctx.quadraticCurveTo(centerX, poolY + 20, centerX + 70, poolY);
-            ctx.lineTo(centerX + 70, height);
-            ctx.stroke();
+            // Simple fluid shape inside the glass
+            ctx.moveTo(centerX - 40, vesselY + 100);
+            ctx.lineTo(centerX - 40, vesselY + 100 - fluidLevel);
+            // Surface tension wave
+            ctx.bezierCurveTo(centerX - 20, vesselY + 100 - fluidLevel - 5, centerX + 20, vesselY + 100 - fluidLevel + 5, centerX + 40, vesselY + 100 - fluidLevel);
+            ctx.lineTo(centerX + 40, vesselY + 100);
+            ctx.fill();
 
-            // Fluid in Clepsydra
-            // Level rises slightly as minutes pass in the current hour (resetting every hour for demo or keeping it)
-            // Let's make it fill up based on seconds for more visible movement in this demo
-            const targetFluidHeight = (minutes % 60) * 2; // Up to 120px height
-            fluidLevel = fluidLevel + (targetFluidHeight - fluidLevel) * 0.05;
 
-            if (fluidLevel > 0) {
-                ctx.fillStyle = 'rgba(218, 165, 32, 0.6)'; // Liquid gold
-                ctx.beginPath();
-                const fluidSurfaceY = height - fluidLevel;
-                ctx.moveTo(centerX - 68, height);
-                ctx.lineTo(centerX - 68, fluidSurfaceY);
-                // Wavy surface
-                const waveOffset = Math.sin(Date.now() / 500) * 3;
-                ctx.quadraticCurveTo(centerX, fluidSurfaceY + waveOffset + 10, centerX + 68, fluidSurfaceY);
-                ctx.lineTo(centerX + 68, height);
-                ctx.fill();
-            }
-
-            // 2. Draw Melting Clock Face
+            // Draw Glass Vessel visuals (Front)
             ctx.save();
-            ctx.translate(centerX, centerY);
+            ctx.shadowColor = "rgba(0,0,0,0.2)";
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 5;
 
-            // Warp effect based on time (breathing/melting)
-            const warpY = Math.cos(Date.now() / 3000) * 5;
-            const meltFactor = Math.sin(Date.now() / 5000) * 5;
+            const glassGrad = ctx.createLinearGradient(centerX - 50, vesselY, centerX + 50, vesselY + 120);
+            glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+            glassGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
+            glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
 
-            // Clock Shape (Distorted Circle / Soft Watch)
+            ctx.fillStyle = glassGrad;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 2;
+
             ctx.beginPath();
-            ctx.strokeStyle = '#4a4a4a';
-            ctx.lineWidth = 3;
-            ctx.fillStyle = 'rgba(240, 240, 230, 0.9)'; // Off-white porcelain face
-
-            // Draw a "blobby" circle
-            for (let i = 0; i <= Math.PI * 2; i += 0.1) {
-                let r = radius;
-
-                // Distort bottom to look like it's dripping/melting
-                if (i > Math.PI * 0.25 && i < Math.PI * 0.75) {
-                    r += Math.sin(i * 10) * 3 + warpY + 10;
-                }
-
-                const x = Math.cos(i) * r;
-                const y = Math.sin(i) * r;
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
+            // Elegant vase shape
+            ctx.moveTo(centerX - 30, vesselY); // Top neck
+            ctx.quadraticCurveTo(centerX - 60, vesselY + 40, centerX - 40, vesselY + 100); // Bulbous body left
+            ctx.quadraticCurveTo(centerX, vesselY + 120, centerX + 40, vesselY + 100); // Bottom round
+            ctx.quadraticCurveTo(centerX + 60, vesselY + 40, centerX + 30, vesselY); // Bulbous body right
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
-            // Numbers (Roman numerals for Dali vibes)
-            ctx.font = '14px serif';
-            ctx.fillStyle = '#000';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            [12, 3, 6, 9].forEach(num => {
-                const angle = (num - 3) * (Math.PI * 2) / 12;
-                const nx = Math.cos(angle) * (radius * 0.8);
-                const ny = Math.sin(angle) * (radius * 0.8);
-                ctx.fillText(num.toString(), nx, ny);
-            });
-
-
-            // Clock Hands
-            // Hour
-            const hourAngle = ((hours % 12) + minutes / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
-            drawHand(ctx, hourAngle, radius * 0.5, 4, '#000');
-            // Minute
-            const minuteAngle = (minutes + seconds / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
-            drawHand(ctx, minuteAngle, radius * 0.7, 3, '#000');
-            // Second
-            const secondAngle = (seconds + millis / 1000) * (Math.PI * 2) / 60 - Math.PI / 2;
-            drawHand(ctx, secondAngle, radius * 0.85, 1, '#b91c1c');
-
+            // Highlights
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            ctx.lineWidth = 3;
+            ctx.arc(centerX + 25, vesselY + 60, 10, -0.5, 0.5); // Specular highlight
+            ctx.stroke();
             ctx.restore();
 
-            // 3. Dripping Time Logic
-            // Add a drop every time the minute changes OR randomly for effect
-            if (Math.random() < 0.02) { // Random drip
-                drops.push({
+
+            // --- 1. Draw Melting Clock Body ---
+            ctx.save();
+
+            // Metallic Gold Bezel Gradient
+            const bezelGrad = ctx.createRadialGradient(centerX - 20, clockY - 20, radius * 0.5, centerX, clockY, radius * 1.5);
+            bezelGrad.addColorStop(0, '#F5DEB3'); // Wheat highlight
+            bezelGrad.addColorStop(0.3, '#DAA520'); // Goldenrod
+            bezelGrad.addColorStop(0.6, '#B8860B'); // Dark goldenrod
+            bezelGrad.addColorStop(1, '#8B4513'); // Saddlebrown shadow
+
+            // Breathing/Melting Animation
+            const breath = Math.sin(Date.now() / 2000) * 2;
+            const meltOffset = Math.sin(Date.now() / 4000) * 5;
+
+            // Draw Bezel Shape
+            ctx.beginPath();
+            for (let i = 0; i < distortionPoints.length; i++) {
+                const p = distortionPoints[i];
+                let r = p.r + breath;
+                // Add dynamic wave to bottom
+                if (p.angle > 0.5 && p.angle < 2.5) {
+                    r += Math.sin(p.angle * 10 + Date.now() / 1000) * 3;
+                }
+                const x = centerX + Math.cos(p.angle) * r;
+                const y = clockY + Math.sin(p.angle) * r;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+            ctx.fillStyle = bezelGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#5c4033';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.shadowColor = 'transparent'; // Reset shadow
+
+            // Face (Porcelain)
+            ctx.beginPath();
+            // Re-trace slightly smaller for the face
+            for (let i = 0; i < distortionPoints.length; i++) {
+                const p = distortionPoints[i];
+                let r = (p.r + breath) - 8; // Inset
+                if (p.angle > 0.5 && p.angle < 2.5) {
+                    r += Math.sin(p.angle * 10 + Date.now() / 1000) * 3;
+                }
+                const x = centerX + Math.cos(p.angle) * r;
+                const y = clockY + Math.sin(p.angle) * r;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            const faceGrad = ctx.createRadialGradient(centerX, clockY, 10, centerX, clockY, radius);
+            faceGrad.addColorStop(0, '#fffff0'); // Ivory
+            faceGrad.addColorStop(1, '#f0e68c'); // Khaki edge
+            ctx.fillStyle = faceGrad;
+            ctx.fill();
+
+            // Inner shadow for depth
+            ctx.shadowColor = 'rgba(0,0,0,0.2)';
+            ctx.shadowBlur = 10;
+            ctx.shadowInset = true; // Canvas doesn't do inset directly, we simulate or ignore for now
+            ctx.stroke();
+
+            // --- 2. Ticks & falling logic ---
+            // We want 60 ticks.
+            // A tick is just a line at an angle.
+            // If a minute passes, we detach a tick.
+
+            if (sec !== lastSecond && sec % 2 === 0) { // Every 2 seconds for visual effect, or use (min !== lastMin) for real minutes
+                lastSecond = sec;
+                // Pick a random tick from the bottom half to "melt" off
+                // Angles 0 to PI (bottom semi-circle roughly)
+                const randomAngleIdx = Math.floor(Math.random() * 30) + 15; // Bottom-ish range
+                // Actually, let's just make the "current minute" tick fall? 
+                // Or random "minute bars" dripping.
+
+                // Let's spawn a falling bar from the bottom drip point
+                fallingItems.push({
                     x: centerX + (Math.random() * 40 - 20),
-                    y: centerY + radius,
-                    vy: 2,
-                    radius: 3,
-                    alpha: 1
+                    y: clockY + radius + 10, // Start at bottom of clock
+                    angle: Math.PI / 2, // Vertical
+                    vy: 0,
+                    vr: (Math.random() - 0.5) * 0.1, // Rotation speed
+                    type: Math.random() > 0.8 ? 'num' : 'bar' // Sometimes a number falls?
                 });
             }
 
-            // Animate Drops
-            ctx.fillStyle = 'rgba(218, 165, 32, 0.8)'; // Golden drops
-            drops.forEach((drop, index) => {
-                drop.y += drop.vy;
-                drop.vy += 0.2; // Gravity
+            // Draw static Ticks (that haven't fallen - technically we draw all and overlay falling ones for visual density)
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 60; i++) {
+                const angle = (i * 6) * (Math.PI / 180) - Math.PI / 2;
+                const isHour = i % 5 === 0;
+                const len = isHour ? 15 : 8;
+                const width = isHour ? 3 : 1;
 
-                // Draw drop (teardrop shape)
-                ctx.beginPath();
-                ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
-                ctx.fill();
+                // Warp the positions based on our melt map roughly
+                // Simple mapping:
+                let rStart = radius - 15;
+                let rEnd = radius - 15 - len;
 
-                // Remove if hits the fluid line or bottom
-                if (drop.y > height - fluidLevel) {
-                    drops.splice(index, 1);
-                    // Could add ripple here later
+                // Apply melt distortion to tick positions
+                // This is an approximation since we don't have the exact poly point for every degree
+                let melt = 0;
+                let checkAngle = (angle + Math.PI / 2) % (Math.PI * 2); // Normalize 0-2PI
+                if (checkAngle > 0.5 && checkAngle < 2.5) {
+                    melt = Math.sin(checkAngle * 10) * 3 + 10;
                 }
+
+                const x1 = centerX + Math.cos(angle) * (rStart + melt);
+                const y1 = clockY + Math.sin(angle) * (rStart + melt);
+                const x2 = centerX + Math.cos(angle) * (rEnd + melt);
+                const y2 = clockY + Math.sin(angle) * (rEnd + melt);
+
+                ctx.beginPath();
+                ctx.lineWidth = width;
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            // Draw Hands (Serpentine/Organic)
+            // Hour
+            const hourAngle = ((hr % 12) + min / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
+            drawOrganicHand(ctx, centerX, clockY, hourAngle, radius * 0.5, 4, '#000');
+            // Minute
+            const minAngle = (min + smoothSec / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
+            drawOrganicHand(ctx, centerX, clockY, minAngle, radius * 0.75, 3, '#000');
+            // Second
+            const secAngle = (smoothSec) * (Math.PI * 2) / 60 - Math.PI / 2;
+            drawOrganicHand(ctx, centerX, clockY, secAngle, radius * 0.85, 1, '#8B0000');
+
+            // Draw Center Cap
+            ctx.beginPath();
+            ctx.arc(centerX, clockY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+
+            ctx.restore();
+
+            // --- 4. Animate Falling Items (The "Minutes") ---
+            ctx.save();
+            fallingItems.forEach((item, idx) => {
+                item.vy += 0.2; // Gravity
+                item.y += item.vy;
+                item.angle += item.vr;
+
+                if (item.y > vesselY + 110 - fluidLevel) {
+                    // Hit fluid
+                    fallingItems.splice(idx, 1);
+                    return;
+                }
+
+                ctx.translate(item.x, item.y);
+                ctx.rotate(item.angle);
+
+                // Draw a falling "bar" (the minute mark)
+                ctx.fillStyle = '#000';
+                ctx.shadowBlur = 2;
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+
+                // Make it look 3D-ish
+                ctx.fillRect(-1, -4, 2, 8); // The minute bar
+
+                ctx.shadowBlur = 0;
+                ctx.rotate(-item.angle);
+                ctx.translate(-item.x, -item.y);
             });
+            ctx.restore();
 
             animationFrameId = requestAnimationFrame(render);
         };
 
-        const drawHand = (ctx, angle, length, width, color) => {
+        const drawOrganicHand = (ctx, cx, cy, angle, length, width, color) => {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+
             ctx.beginPath();
             ctx.lineWidth = width;
             ctx.strokeStyle = color;
             ctx.lineCap = 'round';
-            // Simple wavy distortion for hand
-            ctx.moveTo(0, 0);
-            const midX = Math.cos(angle) * (length * 0.5) + Math.sin(Date.now() / 500) * 2;
-            const midY = Math.sin(angle) * (length * 0.5) + Math.cos(Date.now() / 500) * 2;
-            const endX = Math.cos(angle) * length;
-            const endY = Math.sin(angle) * length;
+            ctx.lineJoin = 'round';
 
-            ctx.quadraticCurveTo(midX, midY, endX, endY);
+            // Draw a slightly wavy line to simulate "soft" metal
+            ctx.moveTo(0, 0);
+
+            const cp1x = length * 0.3;
+            const cp1y = Math.sin(Date.now() / 1000) * 3;
+            const cp2x = length * 0.7;
+            const cp2y = -Math.sin(Date.now() / 1500) * 3;
+
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, length, 0);
             ctx.stroke();
+
+            // Arrow head or blob at end
+            ctx.beginPath();
+            ctx.arc(length, 0, width, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            ctx.restore();
         };
 
         render();
@@ -187,12 +330,12 @@ export default function MeltingClock({ isWorking }) {
             className="animate-fade-in"
             style={{
                 position: 'fixed',
-                right: '20px',
+                right: '40px', // Adjusted to not be flush
                 top: 0,
-                width: '300px',
+                width: '350px',
                 height: '100vh',
                 pointerEvents: 'none',
-                zIndex: 10, // Above background, below modal
+                zIndex: 10,
             }}
         />
     );
