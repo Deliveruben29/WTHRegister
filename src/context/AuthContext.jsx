@@ -99,9 +99,33 @@ export const AuthProvider = ({ children }) => {
         );
     }
 
+    if (loading) {
+        return (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                color: 'white',
+                fontSize: '1.5rem',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                zIndex: 9999
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ marginBottom: '1rem' }}>Loading application...</div>
+                    <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Checking authentication status</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
