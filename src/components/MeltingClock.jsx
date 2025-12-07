@@ -1,4 +1,3 @@
-```javascript
 import { useEffect, useRef } from 'react';
 import clockVideo from '../assets/clock_bg.mp4';
 
@@ -12,7 +11,7 @@ export default function MeltingClock({ isWorking }) {
         y: 0.22, // Percentage of height from top (0 to 1)
         radius: 100 // Radius in pixels (approx)
     };
-    
+
     useEffect(() => {
         if (!isWorking) return;
 
@@ -30,7 +29,7 @@ export default function MeltingClock({ isWorking }) {
         const centerY = height * CLOCK.y;
         const radius = CLOCK.radius;
 
-        let fallingItems = []; 
+        let fallingItems = [];
         let lastSecond = new Date().getSeconds();
 
         const render = () => {
@@ -47,32 +46,32 @@ export default function MeltingClock({ isWorking }) {
             // --- 1. Draw Hands (Overlaying the video) ---
             // Assuming the video has an empty face or we draw over it. 
             // If the video has hands, we might be doubling them, but user wanted "logic".
-            
+
             const hAngle = ((hr % 12) + min / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
             const mAngle = (min + smoothSec / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
-            
+
             // Draw darker hands to contrast with potential video brightness
             drawBranchHand(ctx, centerX, centerY, hAngle, radius * 0.45, 5, '#1A1005');
             drawBranchHand(ctx, centerX, centerY, mAngle, radius * 0.7, 3, '#1A1005');
 
             // --- 2. Spawn Minute Bars (Falling Logic) ---
-            if (sec !== lastSecond) { 
-                 lastSecond = sec;
-                 fallingItems.push({
-                     x: centerX + (Math.random() * 20 - 10),
-                     y: centerY + radius * 0.8, // Start falling from lower part of dial
-                     vx: (Math.random() - 0.5) * 1,
-                     vy: 0,
-                     vr: (Math.random() - 0.5) * 0.3,
-                     angle: Math.random() * Math.PI,
-                     size: Math.random() * 10 + 5
-                 });
+            if (sec !== lastSecond) {
+                lastSecond = sec;
+                fallingItems.push({
+                    x: centerX + (Math.random() * 20 - 10),
+                    y: centerY + radius * 0.8, // Start falling from lower part of dial
+                    vx: (Math.random() - 0.5) * 1,
+                    vy: 0,
+                    vr: (Math.random() - 0.5) * 0.3,
+                    angle: Math.random() * Math.PI,
+                    size: Math.random() * 10 + 5
+                });
             }
 
             // --- 3. Animate Falling Items ---
             ctx.save();
             fallingItems.forEach((item, idx) => {
-                item.vy += 0.15; 
+                item.vy += 0.15;
                 item.x += item.vx;
                 item.y += item.vy;
                 item.angle += item.vr;
@@ -85,13 +84,13 @@ export default function MeltingClock({ isWorking }) {
 
                 ctx.translate(item.x, item.y);
                 ctx.rotate(item.angle);
-                
+
                 // Draw falling debris
                 ctx.fillStyle = '#1A1005';
                 ctx.beginPath();
-                ctx.moveTo(-2, -item.size/2);
-                ctx.lineTo(2, -item.size/2);
-                ctx.lineTo(0, item.size/2);
+                ctx.moveTo(-2, -item.size / 2);
+                ctx.lineTo(2, -item.size / 2);
+                ctx.lineTo(0, item.size / 2);
                 ctx.fill();
 
                 ctx.rotate(-item.angle);
@@ -110,13 +109,13 @@ export default function MeltingClock({ isWorking }) {
             ctx.lineWidth = width;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            
+
             ctx.beginPath();
-            ctx.moveTo(0,0);
+            ctx.moveTo(0, 0);
             const mid = length * 0.6;
-            ctx.quadraticCurveTo(mid, width*3, length, 0);
+            ctx.quadraticCurveTo(mid, width * 3, length, 0);
             ctx.stroke();
-            
+
             ctx.restore();
         };
 
@@ -128,21 +127,21 @@ export default function MeltingClock({ isWorking }) {
     if (!isWorking) return null;
 
     return (
-        <div className="animate-fade-in" style={{ 
-            position: 'fixed', 
-            right: 0, 
-            top: 0, 
-            width: '450px', 
-            height: '100vh', 
+        <div className="animate-fade-in" style={{
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            width: '450px',
+            height: '100vh',
             zIndex: 10,
             pointerEvents: 'none'
         }}>
             {/* The Cinematic Background */}
-            <video 
-                src={clockVideo} 
-                autoPlay 
-                loop 
-                muted 
+            <video
+                src={clockVideo}
+                autoPlay
+                loop
+                muted
                 playsInline
                 style={{
                     width: '100%',
@@ -152,19 +151,18 @@ export default function MeltingClock({ isWorking }) {
                     WebkitMaskImage: 'linear-gradient(to left, black 80%, transparent 100%)'
                 }}
             />
-            
+
             {/* The Dynamic Overlay */}
-            <canvas 
+            <canvas
                 ref={canvasRef}
-                style={{ 
+                style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
                     height: '100%'
-                }} 
+                }}
             />
         </div>
     );
 }
-```
