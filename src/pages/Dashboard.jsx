@@ -43,6 +43,9 @@ export default function Dashboard() {
 
 
 
+    const isWorking = !!currentRecord;
+    const overtimeMinutes = Math.max(0, weeklyMinutes - (40 * 60));
+
     // Effect for Surrealist Time Dilation Mode
     useEffect(() => {
         if (isWorking) {
@@ -98,8 +101,7 @@ export default function Dashboard() {
         localStorage.setItem('theme-primary', color);
     };
 
-    const isWorking = !!currentRecord;
-    const overtimeMinutes = Math.max(0, weeklyMinutes - (40 * 60));
+
 
     return (
         <div className="container" style={{ padding: '2rem 1rem', maxWidth: '800px' }}>
