@@ -144,7 +144,9 @@ export default function MeltingClock({ isWorking }) {
                     maxHeight: '100%',
                     width: 'auto',
                     height: 'auto',
-                    objectFit: 'contain', // Corrected: Ensure full visibility
+                    objectFit: 'contain',
+                    mixBlendMode: 'screen', // The Magic Trick
+                    filter: 'contrast(1.1) brightness(0.9)',
                     maskImage: 'linear-gradient(to left, black 80%, transparent 100%)',
                     WebkitMaskImage: 'linear-gradient(to left, black 80%, transparent 100%)'
                 }}
