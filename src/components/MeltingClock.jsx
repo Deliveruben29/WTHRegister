@@ -5,11 +5,10 @@ export default function MeltingClock({ isWorking }) {
     const canvasRef = useRef(null);
 
     // --- CONFIGURATION FOR ALIGNMENT ---
-    // You may need to tweak these values to match the video perfectly
     const CLOCK = {
-        x: 0.55, // Percentage of width from left (0 to 1) - relative to video container
+        x: 0.55, // Percentage of width from left (0 to 1)
         y: 0.22, // Percentage of height from top (0 to 1)
-        radius: 100 // Radius in pixels (approx)
+        radius: 100 // Radius in pixels
     };
 
     useEffect(() => {
@@ -19,12 +18,11 @@ export default function MeltingClock({ isWorking }) {
         const ctx = canvas.getContext('2d');
         let animationFrameId;
 
-        const width = 450; // Match container width
+        const width = 450;
         const height = window.innerHeight;
         canvas.width = width;
         canvas.height = height;
 
-        // Calculate actual pixel positions based on container size
         const centerX = width * CLOCK.x;
         const centerY = height * CLOCK.y;
         const radius = CLOCK.radius;
@@ -43,23 +41,19 @@ export default function MeltingClock({ isWorking }) {
             const millis = now.getMilliseconds();
             const smoothSec = sec + millis / 1000;
 
-            // --- 1. Draw Hands (Overlaying the video) ---
-            // Assuming the video has an empty face or we draw over it. 
-            // If the video has hands, we might be doubling them, but user wanted "logic".
-
+            // --- 1. Draw Hands ---
             const hAngle = ((hr % 12) + min / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
             const mAngle = (min + smoothSec / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
 
-            // Draw darker hands to contrast with potential video brightness
             drawBranchHand(ctx, centerX, centerY, hAngle, radius * 0.45, 5, '#1A1005');
             drawBranchHand(ctx, centerX, centerY, mAngle, radius * 0.7, 3, '#1A1005');
 
-            // --- 2. Spawn Minute Bars (Falling Logic) ---
+            // --- 2. Spawn Minute Bars ---
             if (sec !== lastSecond) {
                 lastSecond = sec;
                 fallingItems.push({
                     x: centerX + (Math.random() * 20 - 10),
-                    y: centerY + radius * 0.8, // Start falling from lower part of dial
+                    y: centerY + radius * 0.8,
                     vx: (Math.random() - 0.5) * 1,
                     vy: 0,
                     vr: (Math.random() - 0.5) * 0.3,
@@ -76,7 +70,6 @@ export default function MeltingClock({ isWorking }) {
                 item.y += item.vy;
                 item.angle += item.vr;
 
-                // Remove when off screen
                 if (item.y > height) {
                     fallingItems.splice(idx, 1);
                     return;
@@ -85,7 +78,6 @@ export default function MeltingClock({ isWorking }) {
                 ctx.translate(item.x, item.y);
                 ctx.rotate(item.angle);
 
-                // Draw falling debris
                 ctx.fillStyle = '#1A1005';
                 ctx.beginPath();
                 ctx.moveTo(-2, -item.size / 2);
@@ -129,14 +121,15 @@ export default function MeltingClock({ isWorking }) {
     return (
         <div className="animate-fade-in" style={{
             position: 'fixed',
-            right: 0,
+            right: '-50px', // Shift right slightly to balance the scale
             top: 0,
             width: '450px',
             height: '100vh',
             zIndex: 10,
-            pointerEvents: 'none'
+            pointerEvents: 'none',
+            transform: 'scale(0.85)', // Scale down to fit better
+            transformOrigin: 'top right'
         }}>
-            {/* The Cinematic Background */}
             <video
                 src={clockVideo}
                 autoPlay
@@ -147,12 +140,10 @@ export default function MeltingClock({ isWorking }) {
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                    maskImage: 'linear-gradient(to left, black 80%, transparent 100%)', // Fade out left edge
+                    maskImage: 'linear-gradient(to left, black 80%, transparent 100%)',
                     WebkitMaskImage: 'linear-gradient(to left, black 80%, transparent 100%)'
                 }}
             />
-
-            {/* The Dynamic Overlay */}
             <canvas
                 ref={canvasRef}
                 style={{
