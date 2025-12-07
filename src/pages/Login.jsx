@@ -25,10 +25,7 @@ export default function Login() {
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: '100vh',
-            backgroundImage: 'url(/bg-login.png)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat'
+            // Background is handled globally in index.css
         }}>
             <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>

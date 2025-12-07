@@ -40,6 +40,23 @@ export default function Dashboard() {
         }
     }, [toast]);
 
+
+
+
+    // Effect for Surrealist Time Dilation Mode
+    useEffect(() => {
+        if (isWorking) {
+            document.body.classList.add('time-dilation-active');
+        } else {
+            document.body.classList.remove('time-dilation-active');
+        }
+
+        // Cleanup on unmount
+        return () => {
+            document.body.classList.remove('time-dilation-active');
+        };
+    }, [isWorking]);
+
     const loadData = () => {
         const userRecords = storage.getRecords(user.id);
         setRecords(userRecords);

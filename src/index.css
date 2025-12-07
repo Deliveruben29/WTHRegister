@@ -7,7 +7,8 @@
   --danger: #ef4444;
 
   --background: #f8fafc;
-  --surface: #ffffff;
+  --surface: rgba(255, 255, 255, 0.9);
+  /* More transparent for bg visibility */
   --surface-light: #f1f5f9;
 
   --text-main: #0f172a;
@@ -30,14 +31,53 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--background);
   color: var(--text-main);
   line-height: 1.5;
   min-height: 100vh;
+
+  /* Global Surrealist Background */
+  background-image: url('/bg-login.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  /* Parallax-like feel */
+  background-repeat: no-repeat;
+
+  /* Transition for smoothness */
+  transition: filter 1s ease, transform 1s ease;
 }
 
+/* Overlay to improve readability over artistic background */
 #root {
   min-height: 100vh;
+  background-color: rgba(255, 255, 255, 0.4);
+  /* Glass effect overlay */
+  backdrop-filter: blur(3px);
+  /* Subtle blur for readability */
+}
+
+/* Time Dilation Effect Check-in */
+@keyframes timeDilation {
+  0% {
+    transform: scale(1);
+    filter: contrast(100%) hue-rotate(0deg);
+  }
+
+  50% {
+    transform: scale(1.02);
+    filter: contrast(110%) hue-rotate(5deg);
+  }
+
+  100% {
+    transform: scale(1);
+    filter: contrast(100%) hue-rotate(0deg);
+  }
+}
+
+body.time-dilation-active {
+  animation: timeDilation 10s infinite ease-in-out;
+  /* Optional: Make the glass overlay slightly darker/tinted when working */
+  cursor: url('data:image/svg+xml;utf8,<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="black" stroke-width="2"/><path d="M12 6V12L16 14" stroke="black" stroke-width="2"/></svg>'), auto;
 }
 
 /* Typography */
@@ -90,8 +130,10 @@ h6 {
   border-radius: var(--radius-lg);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(10px);
+  /* Glassmorphism card */
 }
 
 .card:hover {
@@ -188,7 +230,7 @@ h6 {
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   transition: all 0.2s;
-  background-color: var(--surface);
+  background-color: rgba(255, 255, 255, 0.8);
   color: var(--text-main);
 }
 
@@ -196,6 +238,7 @@ h6 {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background-color: #fff;
 }
 
 .input-group input::placeholder {
@@ -254,14 +297,16 @@ a:hover {
 }
 
 .status-badge.working {
-  background-color: rgba(16, 185, 129, 0.1);
+  background-color: rgba(16, 185, 129, 0.2);
   color: var(--success);
   animation: pulse-green 2s infinite;
+  backdrop-filter: blur(4px);
 }
 
 .status-badge.not-working {
-  background-color: rgba(148, 163, 184, 0.1);
+  background-color: rgba(148, 163, 184, 0.2);
   color: var(--text-muted);
+  backdrop-filter: blur(4px);
 }
 
 /* Toast Notification */
@@ -294,6 +339,7 @@ a:hover {
   border: 1px solid #e2e8f0;
   animation: slideDownFade 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   font-weight: 600;
+  backdrop-filter: blur(8px);
 }
 
 /* Utilities */
