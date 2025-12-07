@@ -16,35 +16,59 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                // Fetch profile to get the name
-                getProfile(session.user).then(profile => {
-                    setUser({ ...session.user, name: profile?.name || session.user.email });
-                });
-            } else {
-                setUser(null);
+        let mounted = true;
+
+        const checkSession = async () => {
+            try {
+                // Force timeout after 5 seconds to prevent hanging (VPN/Network issues)
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Session check timeout')), 5000)
+                );
+
+                const { data } = await Promise.race([
+                    supabase.auth.getSession(),
+                    timeoutPromise
+                ]);
+
+                if (mounted && data?.session?.user) {
+                    const profile = await getProfile(data.session.user);
+                    if (mounted) {
+                        setUser({
+                            ...data.session.user,
+                            name: profile?.name || data.session.user.email
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Session check failed:", err);
+                // On error/timeout, we just settle as logged out so the user sees the UI
+                if (mounted) setUser(null);
+            } finally {
+                if (mounted) setLoading(false);
             }
-        }).catch(err => {
-            console.error("Session check failed:", err);
-            setUser(null);
-        }).finally(() => {
-            setLoading(false);
-        });
+        };
+
+        checkSession();
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (!mounted) return;
+
             if (session?.user) {
                 const profile = await getProfile(session.user);
-                setUser({ ...session.user, name: profile?.name || session.user.email });
+                if (mounted) {
+                    setUser({ ...session.user, name: profile?.name || session.user.email });
+                }
             } else {
                 setUser(null);
             }
             setLoading(false);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const getProfile = async (user) => {
@@ -89,6 +113,14 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const resetPassword = async (email) => {
+        if (!supabase) return { success: false, error: { message: 'System not configured' } };
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/reset-password',
+        });
+        return { success: !error, error };
+    };
+
     if (configError) {
         return (
             <div style={{ color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', textAlign: 'center' }}>
@@ -124,7 +156,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, resetPassword, loading }}>
             {children}
         </AuthContext.Provider>
     );

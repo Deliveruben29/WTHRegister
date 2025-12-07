@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Eye, EyeOff } from 'lucide-react';
 
 export default function Register() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const { register } = useAuth();
     const navigate = useNavigate();
 
@@ -69,15 +70,34 @@ export default function Register() {
                         />
                     </div>
 
-                    <div className="input-group">
+                    <div className="input-group" style={{ position: 'relative' }}>
                         <label>Password</label>
                         <input
-                            type="password"
+                            type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
                             placeholder="••••••••"
+                            style={{ paddingRight: '2.5rem' }}
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            style={{
+                                position: 'absolute',
+                                right: '0.75rem',
+                                top: '2.25rem',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                padding: '0.25rem',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                        >
+                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                     </div>
 
                     <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
