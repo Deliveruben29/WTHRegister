@@ -8,7 +8,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Supabase vars missing. Check your .env or Render environment variables.');
 }
 
-export const supabase = createClient(
-    supabaseUrl,
-    supabaseAnonKey
-);
+// Fallback to avoid crash during build or if keys are missing
+const isValid = supabaseUrl && supabaseAnonKey;
+
+export const supabase = isValid
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
