@@ -45,19 +45,27 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return !error;
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        return { success: !error, error };
     };
 
     const register = async (name, email, password) => {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                data: { name } // This will be handled by the trigger we just added
+                data: { name }
             }
         });
-        return !error;
+
+        if (error) {
+            console.error('Registration error:', error.message);
+            return false;
+        }
+
+        // If email confirmation is enabled, data.session might be null even if successful.
+        // We consider it a success so the UI can redirect or show a message.
+        return true;
     };
 
     const logout = async () => {

@@ -11,12 +11,17 @@ export default function Register() {
     const { register } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (register(name, email, password)) {
+        const success = await register(name, email, password);
+        if (success) {
+            // Check if user is logged in automatically (Supabase default behavior depends on settings)
+            // But we navigate to login to be safe or explain check email.
+            // Actually, if auto-sign-in is enabled, AuthContext will update 'user' and we redirect?
+            // Let's redirect to login for now, or check if we need to show a message.
             navigate('/login');
         } else {
-            setError('User already exists');
+            setError('Error creating account. User might already exist.');
         }
     };
 
