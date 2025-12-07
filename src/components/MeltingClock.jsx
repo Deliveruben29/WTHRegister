@@ -11,31 +11,43 @@ export default function MeltingClock({ isWorking }) {
         let animationFrameId;
 
         // Configuration
-        const width = 350; // Wider for better detail
+        const width = 400; // Wider to accommodate the tilted composition
         const height = window.innerHeight;
         canvas.width = width;
         canvas.height = height;
 
-        const centerX = width / 2;
-        const clockY = height * 0.25;
-        const radius = 90;
+        const centerX = width * 0.6;
+        const clockY = height * 0.2;
+        const radius = 100;
 
-        // State for falling numerals/markers
+        // State
         let fallingItems = [];
         let lastSecond = new Date().getSeconds();
         let fluidLevel = 0;
 
-        // Pre-calculate randomized distortion for the "melting" shape static part
-        // To make it look like a consistent object, we use a fixed noise-like pattern
+        // Pre-calculate randomized distortion for the "melting" shape
         const distortionPoints = [];
-        for (let i = 0; i <= Math.PI * 2; i += 0.1) {
-            // Strong distortion at the bottom (PI/2 is bottom in normal circle terms, but we start 0 at right)
-            // 0=Right, PI/2=Bottom, PI=Left, 3PI/2=Top
+        const numPoints = 100;
+        for (let i = 0; i <= numPoints; i++) {
+            const angle = (i / numPoints) * Math.PI * 2;
             let r = radius;
-            if (i > 0.5 && i < 2.5) { // Bottom right to bottom left roughly
-                r += Math.sin(i * 3) * 10 + 20; // Melt downwards
+
+            // Heavy melt at the bottom (around PI/2)
+            // Dali illusion: elongated bottom
+            const bottomFocus = Math.PI / 2;
+            const distFromBottom = Math.abs(angle - bottomFocus);
+
+            if (angle > 0 && angle < Math.PI) {
+                // Stretch downwards heavily
+                r += Math.pow(Math.sin(angle), 3) * 60;
             }
-            distortionPoints.push({ angle: i, r });
+
+            // Curve inwards slightly at top for the "pocket watch" look
+            if (angle > Math.PI && angle < Math.PI * 2) {
+                r -= 5;
+            }
+
+            distortionPoints.push({ angle, r_base: r });
         }
 
         const render = () => {
@@ -49,219 +61,213 @@ export default function MeltingClock({ isWorking }) {
             const millis = now.getMilliseconds();
             const smoothSec = sec + millis / 1000;
 
-            // --- 3. Draw Clepsidra (The Vessel) ---
-            const vesselY = height - 150;
-            const vesselWidth = 100;
+            // --- 3. Draw Clepsidra (Glass Hourglass) ---
+            const vesselX = centerX - 30;
+            const vesselY = height - 180;
+            const scale = 0.8;
 
-            // Draw Fluid
-            // Fill level based on minutes passed in hour
-            const maxFill = 80;
-            const currentFill = (min / 60) * maxFill;
-            fluidLevel += (currentFill - fluidLevel) * 0.05;
+            ctx.save();
+            ctx.translate(vesselX, vesselY);
+            ctx.scale(scale, scale);
+            ctx.rotate(-0.2); // Tilted like in the painting
 
-            // Fluid glow
-            const fluidGrad = ctx.createLinearGradient(centerX, vesselY + 100, centerX, vesselY + 100 - fluidLevel);
-            fluidGrad.addColorStop(0, '#DAA520'); // Goldenrod
-            fluidGrad.addColorStop(1, '#FFD700'); // Gold
+            // Fluid/Sand Accumulation
+            const maxLevel = 100;
+            const fluidCurrent = (min / 60) * maxLevel; // Fill up
+            fluidLevel += (fluidCurrent - fluidLevel) * 0.05;
 
-            ctx.fillStyle = fluidGrad;
+            // Draw contents (Gold Sand)
+            ctx.fillStyle = '#C5A000'; // Dark gold sand
             ctx.beginPath();
-            // Simple fluid shape inside the glass
-            ctx.moveTo(centerX - 40, vesselY + 100);
-            ctx.lineTo(centerX - 40, vesselY + 100 - fluidLevel);
-            // Surface tension wave
-            ctx.bezierCurveTo(centerX - 20, vesselY + 100 - fluidLevel - 5, centerX + 20, vesselY + 100 - fluidLevel + 5, centerX + 40, vesselY + 100 - fluidLevel);
-            ctx.lineTo(centerX + 40, vesselY + 100);
+            // Bottom bulb fill
+            const fillHeight = fluidLevel;
+            ctx.rect(-40, 150 - fillHeight, 80, fillHeight); // Simple clip mask fill
+            // Masking would be better but simple rect works inside the shape we'll draw over
+            // Let's actually draw the sand shape
             ctx.fill();
 
-
-            // Draw Glass Vessel visuals (Front)
-            ctx.save();
-            ctx.shadowColor = "rgba(0,0,0,0.2)";
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetY = 5;
-
-            const glassGrad = ctx.createLinearGradient(centerX - 50, vesselY, centerX + 50, vesselY + 120);
-            glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-            glassGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
-            glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+            // Draw Glass Body
+            const glassGrad = ctx.createLinearGradient(-50, 0, 50, 150);
+            glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+            glassGrad.addColorStop(0.3, 'rgba(255, 255, 255, 0.1)');
+            glassGrad.addColorStop(0.5, 'rgba(200, 230, 255, 0.2)');
+            glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.4)');
 
             ctx.fillStyle = glassGrad;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 3;
 
             ctx.beginPath();
-            // Elegant vase shape
-            ctx.moveTo(centerX - 30, vesselY); // Top neck
-            ctx.quadraticCurveTo(centerX - 60, vesselY + 40, centerX - 40, vesselY + 100); // Bulbous body left
-            ctx.quadraticCurveTo(centerX, vesselY + 120, centerX + 40, vesselY + 100); // Bottom round
-            ctx.quadraticCurveTo(centerX + 60, vesselY + 40, centerX + 30, vesselY); // Bulbous body right
+            // Hourglass shape
+            ctx.moveTo(-50, 0); // Top left
+            ctx.bezierCurveTo(-50, 50, -10, 70, -10, 75); // Neck left
+            ctx.lineTo(-10, 80); // Neck straight
+            ctx.bezierCurveTo(-10, 85, -60, 100, -60, 150); // Bottom bulb left
+            ctx.bezierCurveTo(-30, 160, 30, 160, 60, 150); // Bottom curve
+            ctx.bezierCurveTo(60, 100, 10, 85, 10, 80); // Bottom bulb right
+            ctx.lineTo(10, 75); // Neck straight
+            ctx.bezierCurveTo(10, 70, 50, 50, 50, 0); // Top bulb right
+            ctx.bezierCurveTo(20, -10, -20, -10, -50, 0); // Top rim
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
-            // Highlights
+            // Highlights (Reflections)
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-            ctx.lineWidth = 3;
-            ctx.arc(centerX + 25, vesselY + 60, 10, -0.5, 0.5); // Specular highlight
+            ctx.moveTo(-45, 10);
+            ctx.quadraticCurveTo(-45, 40, -15, 65);
             ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(45, 140);
+            ctx.quadraticCurveTo(45, 110, 15, 90);
+            ctx.stroke();
+
+            // Sand Stream
+            if (fallingItems.length === 0) { // Should almost never happen in this logic, but visually connect
+                // Draw a thin stream if we wanted continuous flow, but we have falling minutes
+            }
+
             ctx.restore();
 
 
             // --- 1. Draw Melting Clock Body ---
+            // Animate melt wave
+            const time = Date.now() / 2000;
+
             ctx.save();
+            ctx.translate(centerX, clockY);
 
-            // Metallic Gold Bezel Gradient
-            const bezelGrad = ctx.createRadialGradient(centerX - 20, clockY - 20, radius * 0.5, centerX, clockY, radius * 1.5);
-            bezelGrad.addColorStop(0, '#F5DEB3'); // Wheat highlight
-            bezelGrad.addColorStop(0.3, '#DAA520'); // Goldenrod
-            bezelGrad.addColorStop(0.6, '#B8860B'); // Dark goldenrod
-            bezelGrad.addColorStop(1, '#8B4513'); // Saddlebrown shadow
-
-            // Breathing/Melting Animation
-            const breath = Math.sin(Date.now() / 2000) * 2;
-            const meltOffset = Math.sin(Date.now() / 4000) * 5;
-
-            // Draw Bezel Shape
+            // Create path
             ctx.beginPath();
             for (let i = 0; i < distortionPoints.length; i++) {
                 const p = distortionPoints[i];
-                let r = p.r + breath;
-                // Add dynamic wave to bottom
-                if (p.angle > 0.5 && p.angle < 2.5) {
-                    r += Math.sin(p.angle * 10 + Date.now() / 1000) * 3;
-                }
-                const x = centerX + Math.cos(p.angle) * r;
-                const y = clockY + Math.sin(p.angle) * r;
+                // Add living organic movement
+                const wave = Math.sin(p.angle * 5 + time) * 3;
+                const r = p.r_base + wave;
+                const x = Math.cos(p.angle) * r;
+                const y = Math.sin(p.angle) * r;
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.closePath();
 
+            // Draw Gold Case
+            const goldGrad = ctx.createLinearGradient(-radius, -radius, radius, radius);
+            goldGrad.addColorStop(0, '#DAA520');
+            goldGrad.addColorStop(0.4, '#FFD700');
+            goldGrad.addColorStop(0.7, '#B8860B');
+            goldGrad.addColorStop(1, '#8B4513');
+
+            ctx.fillStyle = goldGrad;
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 15;
             ctx.shadowOffsetY = 10;
-            ctx.fillStyle = bezelGrad;
             ctx.fill();
-            ctx.strokeStyle = '#5c4033';
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#5c4033'; // Dark brown outline
+            ctx.lineWidth = 2;
             ctx.stroke();
-            ctx.shadowColor = 'transparent'; // Reset shadow
 
-            // Face (Porcelain)
+            // Winder (The Crown)
+            ctx.shadowColor = 'transparent';
+            ctx.fillStyle = '#DAA520';
+            ctx.fillRect(-15, -radius - 15, 30, 20);
             ctx.beginPath();
-            // Re-trace slightly smaller for the face
+            ctx.arc(0, -radius - 20, 12, 0, Math.PI * 2); // Ring
+            ctx.strokeStyle = '#B8860B';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Face (Porcelain/White)
+            ctx.beginPath();
             for (let i = 0; i < distortionPoints.length; i++) {
                 const p = distortionPoints[i];
-                let r = (p.r + breath) - 8; // Inset
-                if (p.angle > 0.5 && p.angle < 2.5) {
-                    r += Math.sin(p.angle * 10 + Date.now() / 1000) * 3;
-                }
-                const x = centerX + Math.cos(p.angle) * r;
-                const y = clockY + Math.sin(p.angle) * r;
+                const wave = Math.sin(p.angle * 5 + time) * 3;
+                const r = (p.r_base + wave) * 0.85; // Inner rim
+                const x = Math.cos(p.angle) * r;
+                const y = Math.sin(p.angle) * r;
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
             ctx.closePath();
-            const faceGrad = ctx.createRadialGradient(centerX, clockY, 10, centerX, clockY, radius);
-            faceGrad.addColorStop(0, '#fffff0'); // Ivory
-            faceGrad.addColorStop(1, '#f0e68c'); // Khaki edge
+
+            // Subtle antique shadow on face
+            const faceGrad = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.5);
+            faceGrad.addColorStop(0, '#FFFFFF');
+            faceGrad.addColorStop(0.8, '#F0F0E0');
+            faceGrad.addColorStop(1, '#E6D8AD'); // Aged paper edge
             ctx.fillStyle = faceGrad;
             ctx.fill();
 
-            // Inner shadow for depth
-            ctx.shadowColor = 'rgba(0,0,0,0.2)';
-            ctx.shadowBlur = 10;
-            ctx.shadowInset = true; // Canvas doesn't do inset directly, we simulate or ignore for now
-            ctx.stroke();
+            // --- 2. Roman Numerals & Hands ---
 
-            // --- 2. Ticks & falling logic ---
-            // We want 60 ticks.
-            // A tick is just a line at an angle.
-            // If a minute passes, we detach a tick.
+            // Draw Numerals
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 16px "Times New Roman", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
 
-            if (sec !== lastSecond && sec % 2 === 0) { // Every 2 seconds for visual effect, or use (min !== lastMin) for real minutes
+            const numerals = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+            numerals.forEach((rom, idx) => {
+                const angle = (idx * 30 - 90) * (Math.PI / 180);
+                // Distorted position
+                let r = radius * 0.7;
+                // Apply same melt logic roughly
+                if (angle > 0.5 && angle < 2.5) r += 30; // Melt down
+
+                const nx = Math.cos(angle) * r;
+                const ny = Math.sin(angle) * r;
+
+                // Warp context for text
+                ctx.save();
+                ctx.translate(nx, ny);
+                // Rotate text to follow curve? No, Dali usually had them upright or warped. 
+                // Let's keep upright but warped position.
+                // Maybe a slight skew for realism
+                ctx.scale(1, 1 + (ny / 200)); // Stretch vertical as it goes down
+                ctx.fillText(rom, 0, 0);
+                ctx.restore();
+            });
+
+            // Hands
+            const hAngle = ((hr % 12) + min / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
+            const mAngle = (min + smoothSec / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
+
+            drawFancyHand(ctx, hAngle, radius * 0.4, 5, '#000');
+            drawFancyHand(ctx, mAngle, radius * 0.65, 3, '#000');
+
+
+            // --- Spawn Minute Bars ---
+            if (sec !== lastSecond) {
                 lastSecond = sec;
-                // Pick a random tick from the bottom half to "melt" off
-                // Angles 0 to PI (bottom semi-circle roughly)
-                const randomAngleIdx = Math.floor(Math.random() * 30) + 15; // Bottom-ish range
-                // Actually, let's just make the "current minute" tick fall? 
-                // Or random "minute bars" dripping.
-
-                // Let's spawn a falling bar from the bottom drip point
+                // Spawn a minute marker falling
                 fallingItems.push({
-                    x: centerX + (Math.random() * 40 - 20),
-                    y: clockY + radius + 10, // Start at bottom of clock
-                    angle: Math.PI / 2, // Vertical
+                    x: centerX + (Math.random() * 20 - 10),
+                    y: clockY + radius + 40, // Start from the dripping bottom
+                    vx: (Math.random() - 0.5) * 1,
                     vy: 0,
-                    vr: (Math.random() - 0.5) * 0.1, // Rotation speed
-                    type: Math.random() > 0.8 ? 'num' : 'bar' // Sometimes a number falls?
+                    vr: (Math.random() - 0.5) * 0.2,
+                    angle: Math.random() * Math.PI,
+                    // Aesthetic of the bar
+                    color: '#222'
                 });
             }
 
-            // Draw static Ticks (that haven't fallen - technically we draw all and overlay falling ones for visual density)
-            ctx.strokeStyle = '#222';
-            ctx.lineWidth = 2;
-            for (let i = 0; i < 60; i++) {
-                const angle = (i * 6) * (Math.PI / 180) - Math.PI / 2;
-                const isHour = i % 5 === 0;
-                const len = isHour ? 15 : 8;
-                const width = isHour ? 3 : 1;
+            ctx.restore(); // Back to global coords
 
-                // Warp the positions based on our melt map roughly
-                // Simple mapping:
-                let rStart = radius - 15;
-                let rEnd = radius - 15 - len;
-
-                // Apply melt distortion to tick positions
-                // This is an approximation since we don't have the exact poly point for every degree
-                let melt = 0;
-                let checkAngle = (angle + Math.PI / 2) % (Math.PI * 2); // Normalize 0-2PI
-                if (checkAngle > 0.5 && checkAngle < 2.5) {
-                    melt = Math.sin(checkAngle * 10) * 3 + 10;
-                }
-
-                const x1 = centerX + Math.cos(angle) * (rStart + melt);
-                const y1 = clockY + Math.sin(angle) * (rStart + melt);
-                const x2 = centerX + Math.cos(angle) * (rEnd + melt);
-                const y2 = clockY + Math.sin(angle) * (rEnd + melt);
-
-                ctx.beginPath();
-                ctx.lineWidth = width;
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
-            }
-
-            // Draw Hands (Serpentine/Organic)
-            // Hour
-            const hourAngle = ((hr % 12) + min / 60) * (Math.PI * 2) / 12 - Math.PI / 2;
-            drawOrganicHand(ctx, centerX, clockY, hourAngle, radius * 0.5, 4, '#000');
-            // Minute
-            const minAngle = (min + smoothSec / 60) * (Math.PI * 2) / 60 - Math.PI / 2;
-            drawOrganicHand(ctx, centerX, clockY, minAngle, radius * 0.75, 3, '#000');
-            // Second
-            const secAngle = (smoothSec) * (Math.PI * 2) / 60 - Math.PI / 2;
-            drawOrganicHand(ctx, centerX, clockY, secAngle, radius * 0.85, 1, '#8B0000');
-
-            // Draw Center Cap
-            ctx.beginPath();
-            ctx.arc(centerX, clockY, 3, 0, Math.PI * 2);
-            ctx.fillStyle = '#333';
-            ctx.fill();
-
-            ctx.restore();
-
-            // --- 4. Animate Falling Items (The "Minutes") ---
+            // --- 4. Animate Falling Bars ---
             ctx.save();
             fallingItems.forEach((item, idx) => {
-                item.vy += 0.2; // Gravity
+                item.vy += 0.2;
+                item.x += item.vx;
                 item.y += item.vy;
                 item.angle += item.vr;
 
-                if (item.y > vesselY + 110 - fluidLevel) {
-                    // Hit fluid
+                // Collision with Clepsydra (Visual approximation)
+                if (item.y > (vesselY + 80)) {
+                    // "Splashed" or landed
                     fallingItems.splice(idx, 1);
                     return;
                 }
@@ -269,15 +275,22 @@ export default function MeltingClock({ isWorking }) {
                 ctx.translate(item.x, item.y);
                 ctx.rotate(item.angle);
 
-                // Draw a falling "bar" (the minute mark)
+                // Draw Minute Bar (Artisanal looking line)
                 ctx.fillStyle = '#000';
-                ctx.shadowBlur = 2;
-                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
 
-                // Make it look 3D-ish
-                ctx.fillRect(-1, -4, 2, 8); // The minute bar
+                ctx.beginPath();
+                ctx.moveTo(0, -6);
+                ctx.lineTo(0, 6);
+                ctx.stroke();
 
-                ctx.shadowBlur = 0;
+                // Add a little blob at end like a weight or serif
+                ctx.beginPath();
+                ctx.arc(0, 6, 2, 0, Math.PI * 2);
+                ctx.fill();
+
                 ctx.rotate(-item.angle);
                 ctx.translate(-item.x, -item.y);
             });
@@ -286,33 +299,29 @@ export default function MeltingClock({ isWorking }) {
             animationFrameId = requestAnimationFrame(render);
         };
 
-        const drawOrganicHand = (ctx, cx, cy, angle, length, width, color) => {
+        const drawFancyHand = (ctx, angle, length, width, color) => {
             ctx.save();
-            ctx.translate(cx, cy);
             ctx.rotate(angle);
-
-            ctx.beginPath();
-            ctx.lineWidth = width;
+            ctx.fillStyle = color;
             ctx.strokeStyle = color;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            ctx.lineWidth = width;
 
-            // Draw a slightly wavy line to simulate "soft" metal
+            // Ornate hand shape (breguet style / filigree)
+            ctx.beginPath();
             ctx.moveTo(0, 0);
-
-            const cp1x = length * 0.3;
-            const cp1y = Math.sin(Date.now() / 1000) * 3;
-            const cp2x = length * 0.7;
-            const cp2y = -Math.sin(Date.now() / 1500) * 3;
-
-            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, length, 0);
+            ctx.lineTo(length - 15, 0);
             ctx.stroke();
 
-            // Arrow head or blob at end
+            // Circle/Hollow point
             ctx.beginPath();
-            ctx.arc(length, 0, width, 0, Math.PI * 2);
-            ctx.fillStyle = color;
-            ctx.fill();
+            ctx.arc(length - 10, 0, 4, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Tip
+            ctx.beginPath();
+            ctx.moveTo(length - 6, 0);
+            ctx.lineTo(length, 0);
+            ctx.stroke();
 
             ctx.restore();
         };
@@ -330,9 +339,9 @@ export default function MeltingClock({ isWorking }) {
             className="animate-fade-in"
             style={{
                 position: 'fixed',
-                right: '40px', // Adjusted to not be flush
+                right: 0,
                 top: 0,
-                width: '350px',
+                width: '400px',
                 height: '100vh',
                 pointerEvents: 'none',
                 zIndex: 10,
