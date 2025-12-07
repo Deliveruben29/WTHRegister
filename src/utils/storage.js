@@ -1,68 +1,67 @@
-const USERS_KEY = 'time_tracker_users';
-const CURRENT_USER_KEY = 'time_tracker_current_user';
-const RECORDS_KEY = 'time_tracker_records';
+import { supabase } from './supabase';
 
 export const storage = {
-    getUsers: () => {
-        const users = localStorage.getItem(USERS_KEY);
-        return users ? JSON.parse(users) : [];
-    },
-
-    saveUser: (user) => {
-        const users = storage.getUsers();
-        users.push(user);
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    },
-
-    findUser: (email) => {
-        const users = storage.getUsers();
-        return users.find(u => u.email === email);
-    },
-
-    login: (email, password) => {
-        const user = storage.findUser(email);
-        if (user && user.password === password) {
-            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-            return user;
-        }
-        return null;
-    },
-
-    logout: () => {
-        localStorage.removeItem(CURRENT_USER_KEY);
-    },
-
-    getCurrentUser: () => {
-        const user = localStorage.getItem(CURRENT_USER_KEY);
-        return user ? JSON.parse(user) : null;
-    },
-
     // Time Records
-    getRecords: (userId) => {
-        const allRecords = localStorage.getItem(RECORDS_KEY);
-        const parsed = allRecords ? JSON.parse(allRecords) : {};
-        return parsed[userId] || [];
-    },
+    getRecords: async (userId) => {
+        const { data, error } = await supabase
+            .from('time_records')
+            .select('*')
+            .eq('user_id', userId)
+            .order('check_in', { ascending: true });
 
-    saveRecord: (userId, record) => {
-        const allRecords = localStorage.getItem(RECORDS_KEY);
-        const parsed = allRecords ? JSON.parse(allRecords) : {};
-
-        if (!parsed[userId]) {
-            parsed[userId] = [];
+        if (error) {
+            console.error('Error fetching records:', error);
+            return [];
         }
 
-        parsed[userId].push(record);
-        localStorage.setItem(RECORDS_KEY, JSON.stringify(parsed));
+        // Map snake_case to camelCase for frontend compatibility
+        return data.map(record => ({
+            id: record.id,
+            checkIn: record.check_in,
+            checkOut: record.check_out,
+            // Keep original for reference if needed
+            raw: record
+        }));
     },
 
-    updateLastRecord: (userId, updatedRecord) => {
-        const allRecords = localStorage.getItem(RECORDS_KEY);
-        const parsed = allRecords ? JSON.parse(allRecords) : {};
+    saveRecord: async (userId, record) => {
+        const { data, error } = await supabase
+            .from('time_records')
+            .insert([{
+                user_id: userId,
+                check_in: record.checkIn,
+                check_out: record.checkOut
+            }])
+            .select();
 
-        if (parsed[userId] && parsed[userId].length > 0) {
-            parsed[userId][parsed[userId].length - 1] = updatedRecord;
-            localStorage.setItem(RECORDS_KEY, JSON.stringify(parsed));
+        if (error) {
+            console.error('Error saving record:', error);
+            throw error;
         }
+        return data;
+    },
+
+    updateLastRecord: async (userId, updatedRecord) => {
+        // Prepare update object
+        const updateData = { check_out: updatedRecord.checkOut };
+
+        // If we have the specific record ID, use it (safest)
+        if (updatedRecord.id) {
+            const { error } = await supabase
+                .from('time_records')
+                .update(updateData)
+                .eq('id', updatedRecord.id);
+            if (error) console.error('Error updating record by ID:', error);
+            return;
+        }
+
+        // Fallback: match by check_in time (less safe but works for migration)
+        const { error } = await supabase
+            .from('time_records')
+            .update(updateData)
+            .eq('user_id', userId)
+            .eq('check_in', updatedRecord.checkIn);
+
+        if (error) console.error('Error updating record by timestamp:', error);
     }
 };

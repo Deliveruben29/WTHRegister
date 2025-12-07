@@ -61,40 +61,53 @@ export default function Dashboard() {
         };
     }, [isWorking]);
 
-    const loadData = () => {
-        const userRecords = storage.getRecords(user.id);
-        setRecords(userRecords);
+    const loadData = async () => {
+        if (!user) return;
 
-        // Check if currently working (last record has no checkOut)
-        const last = userRecords[userRecords.length - 1];
-        if (last && !last.checkOut) {
-            setCurrentRecord(last);
-        } else {
-            setCurrentRecord(null);
+        try {
+            const userRecords = await storage.getRecords(user.id);
+            setRecords(userRecords);
+
+            // Check if currently working (last record has no checkOut)
+            const last = userRecords[userRecords.length - 1];
+            if (last && !last.checkOut) {
+                setCurrentRecord(last);
+            } else {
+                setCurrentRecord(null);
+            }
+
+            setWeeklyMinutes(timeUtils.getWeeklyHours(userRecords));
+        } catch (error) {
+            console.error("Failed to load data", error);
         }
-
-        setWeeklyMinutes(timeUtils.getWeeklyHours(userRecords));
     };
 
-    const handleScan = (data) => {
+    const handleScan = async (data) => {
+        if (!user) return;
+
         const now = new Date().toISOString();
         let message = '';
 
-        if (currentRecord) {
-            // Check Out
-            const updated = { ...currentRecord, checkOut: now };
-            storage.updateLastRecord(user.id, updated);
-            message = `Checked Out at ${timeUtils.formatTime(now)}`;
-        } else {
-            // Check In
-            const newRecord = { checkIn: now, checkOut: null };
-            storage.saveRecord(user.id, newRecord);
-            message = `Checked In at ${timeUtils.formatTime(now)}`;
-        }
+        try {
+            if (currentRecord) {
+                // Check Out
+                const updated = { ...currentRecord, checkOut: now };
+                await storage.updateLastRecord(user.id, updated);
+                message = `Checked Out at ${timeUtils.formatTime(now)}`;
+            } else {
+                // Check In
+                const newRecord = { checkIn: now, checkOut: null };
+                await storage.saveRecord(user.id, newRecord);
+                message = `Checked In at ${timeUtils.formatTime(now)}`;
+            }
 
-        setToast(message);
-        setIsScanning(false);
-        loadData();
+            setToast(message);
+            setIsScanning(false);
+            loadData(); // Reload to get freshness (and IDs)
+        } catch (error) {
+            console.error("Scan error:", error);
+            setToast("Error saving record. Try again.");
+        }
     };
 
     const handleThemeChange = (color) => {

@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { storage } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 
 const AuthContext = createContext(null);
 
@@ -8,33 +8,60 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = storage.getCurrentUser();
-        if (storedUser) {
-            setUser(storedUser);
-        }
-        setLoading(false);
+        // Check active session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                // Fetch profile to get the name
+                getProfile(session.user).then(profile => {
+                    setUser({ ...session.user, name: profile?.name || session.user.email });
+                });
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                const profile = await getProfile(session.user);
+                setUser({ ...session.user, name: profile?.name || session.user.email });
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const login = (email, password) => {
-        const user = storage.login(email, password);
-        if (user) {
-            setUser(user);
-            return true;
-        }
-        return false;
+    const getProfile = async (user) => {
+        const { data } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', user.id)
+            .single();
+        return data;
     };
 
-    const register = (name, email, password) => {
-        if (storage.findUser(email)) {
-            return false; // User exists
-        }
-        const newUser = { id: Date.now().toString(), name, email, password };
-        storage.saveUser(newUser);
-        return true;
+    const login = async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        return !error;
     };
 
-    const logout = () => {
-        storage.logout();
+    const register = async (name, email, password) => {
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { name } // This will be handled by the trigger we just added
+            }
+        });
+        return !error;
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
         setUser(null);
     };
 
