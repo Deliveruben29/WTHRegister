@@ -8,7 +8,20 @@ import Dashboard from './pages/Dashboard';
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        color: 'white',
+        fontSize: '1.2rem'
+      }}>
+        Loading authentication...
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/login" />;
