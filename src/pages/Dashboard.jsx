@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
-
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../utils/storage';
 import { timeUtils } from '../utils/time';
 import Scanner from '../components/Scanner';
 import Modal from '../components/Modal';
 import { QRCodeCanvas } from 'qrcode.react';
-import { LogOut, QrCode, Clock, Calendar, AlertCircle, Scan, CheckCircle2 } from 'lucide-react';
+import { LogOut, QrCode, Clock, Calendar, AlertCircle, Scan, CheckCircle2, Settings } from 'lucide-react';
+
+const THEME_COLORS = [
+    { name: 'Blue', value: '#2563eb' },
+    { name: 'Purple', value: '#7c3aed' },
+    { name: 'Green', value: '#16a34a' },
+    { name: 'Red', value: '#dc2626' },
+    { name: 'Orange', value: '#ea580c' },
+    { name: 'Pink', value: '#db2777' },
+];
 
 export default function Dashboard() {
     const { user, logout } = useAuth();
     const [isScanning, setIsScanning] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [records, setRecords] = useState([]);
     const [currentRecord, setCurrentRecord] = useState(null);
     const [weeklyMinutes, setWeeklyMinutes] = useState(0);
@@ -47,9 +56,6 @@ export default function Dashboard() {
     };
 
     const handleScan = (data) => {
-        // In a real app, we'd validate the QR data (e.g. "OFFICE_LOCATION_ID")
-        // For this test, any scan triggers the action.
-
         const now = new Date().toISOString();
         let message = '';
 
@@ -68,6 +74,11 @@ export default function Dashboard() {
         setToast(message);
         setIsScanning(false);
         loadData();
+    };
+
+    const handleThemeChange = (color) => {
+        document.documentElement.style.setProperty('--primary', color);
+        localStorage.setItem('theme-primary', color);
     };
 
     const isWorking = !!currentRecord;
@@ -93,6 +104,9 @@ export default function Dashboard() {
                     <button onClick={() => setShowQRModal(true)} className="btn btn-secondary" title="Show My QR Code">
                         <QrCode size={18} />
                         <span style={{ marginLeft: '0.5rem', display: 'none', '@media (min-width: 640px)': { display: 'inline' } }}>My Code</span>
+                    </button>
+                    <button onClick={() => setShowSettingsModal(true)} className="btn btn-secondary" title="Customize App">
+                        <Settings size={18} />
                     </button>
                     <button onClick={logout} className="btn btn-secondary" title="Logout">
                         <LogOut size={18} />
@@ -251,6 +265,46 @@ export default function Dashboard() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         ID: {user?.id}
                     </p>
+                </div>
+            </Modal>
+
+            {/* Settings Modal */}
+            <Modal
+                isOpen={showSettingsModal}
+                onClose={() => setShowSettingsModal(false)}
+                title="Customize App"
+            >
+                <div style={{ padding: '1rem' }}>
+                    <p style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Choose a theme color:</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                        {THEME_COLORS.map(color => (
+                            <button
+                                key={color.name}
+                                onClick={() => handleThemeChange(color.value)}
+                                style={{
+                                    height: '3rem',
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: color.value,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'transform 0.2s',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '500',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                                title={color.name}
+                                className="hover-scale"
+                                onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                            >
+                                {color.name}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </Modal>
         </div>
