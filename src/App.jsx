@@ -4,6 +4,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import ErrorBoundary from './components/ErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary'; // Assuming ErrorBoundary is in this path
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -15,10 +17,19 @@ const ProtectedRoute = ({ children }) => {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.8)', // Dark background to ensure text visibility
         color: 'white',
-        fontSize: '1.2rem'
+        fontSize: '1.5rem',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        zIndex: 9999
       }}>
-        Loading authentication...
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ marginBottom: '1rem' }}>Loading application...</div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Checking authentication status</div>
+        </div>
       </div>
     );
   }
@@ -37,29 +48,31 @@ function App() {
     if (savedColor) {
       document.documentElement.style.setProperty('--primary', savedColor);
       // We should also calculate hover variant roughly or just let it be simpler for now
-      // ideally we'd have a function to darken the color for hover. 
+      // ideally we'd have a function to darken the color for hover.
       // For this MVP, we might accept hover might not be perfect or we set it too.
     }
   }, []);
 
   console.log('App component rendering');
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
