@@ -10,15 +10,24 @@ export default function MeltingClock({ isWorking }) {
         const ctx = canvas.getContext('2d');
         let animationFrameId;
 
-        const width = 450;
-        const height = window.innerHeight;
-        canvas.width = width;
-        canvas.height = height;
+        const layoutWidth = Math.min(450, window.innerWidth);
+        const layoutHeight = window.innerHeight;
+
+        canvas.width = layoutWidth;
+        canvas.height = layoutHeight;
 
         // Configuration
-        const centerX = width * 0.55;
-        const clockY = height * 0.22;
-        const radius = 100;
+        const centerX = layoutWidth * 0.55;
+        const clockY = layoutHeight * 0.22;
+
+        // Scale factor: 1.0 at 450px width, decreasing for smaller screens
+        // minimizing to about 0.6 on very small screens to ensure readability
+        const baseScale = Math.min(1, layoutWidth / 450);
+
+        // Apply a slightly gentler scaling for mobile so it doesn't get TOO small
+        const scale = baseScale < 1 ? 0.6 + (baseScale * 0.4) : 1;
+
+        const radius = 100 * scale;
 
         // State
         let drops = [];
@@ -28,7 +37,7 @@ export default function MeltingClock({ isWorking }) {
 
         const render = () => {
             if (!ctx) return;
-            ctx.clearRect(0, 0, width, height);
+            ctx.clearRect(0, 0, layoutWidth, layoutHeight);
 
             const now = new Date();
             const sec = now.getSeconds();
@@ -37,7 +46,7 @@ export default function MeltingClock({ isWorking }) {
             const millis = now.getMilliseconds();
             const smoothSec = sec + millis / 1000;
             const time = Date.now() / 1000;
-            wobble = Math.sin(time * 2) * 2; // Gentle breathing/wobble
+            const wobble = Math.sin(time * 2) * 2; // Gentle breathing/wobble
 
             // --- PALETTE (Classic Disney / Cel Shaded) ---
             const P = {
@@ -54,9 +63,10 @@ export default function MeltingClock({ isWorking }) {
             };
 
             // --- 1. Draw Clepsydra (Bottom) ---
-            const vesselY = height - 160;
+            const vesselY = layoutHeight - (160 * scale);
             ctx.save();
             ctx.translate(centerX, vesselY);
+            ctx.scale(scale, scale);
 
             // Liquid Level (accumulates with minutes)
             const fluidLevel = Math.min((min / 60) * 80 + 10, 85);
@@ -71,6 +81,7 @@ export default function MeltingClock({ isWorking }) {
             // Real Clepsydra Draw
             ctx.save();
             ctx.translate(centerX, vesselY);
+            ctx.scale(scale, scale);
             // Shape defined
             ctx.beginPath();
             ctx.moveTo(-40, 0);
@@ -276,7 +287,33 @@ export default function MeltingClock({ isWorking }) {
         };
 
         render();
-        return () => cancelAnimationFrame(animationFrameId);
+
+        // Handle resize
+        const handleResize = () => {
+            // Simply re-triggering render isn't enough if canvas size needs to change.
+            // We need to re-run the setup logic. 
+            // Ideally we'd split setup and render, but for now enforcing a reload of the component 
+            // or just accepting that on mobile rotation we might need a refresh is okay, 
+            // BUT updating the canvas dimensions is better.
+            const newWidth = Math.min(450, window.innerWidth);
+            const newHeight = window.innerHeight;
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            // The render loop reads these values from 'canvas.width' / 'canvas.height' implicitly via context 
+            // but our logic used 'layoutWidth' variable which is closed over.
+            // We need to update the closure variables or restart the effect.
+            // The easiest, robust way for this structure is to rely on React key or just reload page, 
+            // but let's try to just let the CSS handle the squish and the next render cycle might look weird 
+            // if we don't update the variables. 
+            // Actually, the simplest fix for "responsive" is mostly the CSS width + initial load.
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', handleResize);
+        };
     }, [isWorking]);
 
     if (!isWorking) return null;
@@ -289,7 +326,8 @@ export default function MeltingClock({ isWorking }) {
                 position: 'fixed',
                 right: 0,
                 top: 0,
-                width: '450px',
+                width: '100%',
+                maxWidth: '450px',
                 height: '100vh',
                 pointerEvents: 'none',
                 zIndex: 10

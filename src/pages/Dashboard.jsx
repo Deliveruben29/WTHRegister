@@ -31,6 +31,36 @@ export default function Dashboard() {
     const [toast, setToast] = useState(null);
     const [weeklyHoursInput, setWeeklyHoursInput] = useState(user?.weeklyHours || 40);
 
+    // Stable timestamp for QR to avoid re-render flicker/warning
+    const [qrTimestamp, setQrTimestamp] = useState(Date.now());
+
+    // Refresh QR code every minute so it's fresh but stable during renders
+    useEffect(() => {
+        const interval = setInterval(() => setQrTimestamp(Date.now()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const loadData = async () => {
+        if (!user) return;
+
+        try {
+            const userRecords = await storage.getRecords(user.id);
+            setRecords(userRecords);
+
+            // Check if currently working (last record has no checkOut)
+            const last = userRecords[userRecords.length - 1];
+            if (last && !last.checkOut) {
+                setCurrentRecord(last);
+            } else {
+                setCurrentRecord(null);
+            }
+
+            setWeeklyMinutes(timeUtils.getWeeklyHours(userRecords));
+        } catch (error) {
+            console.error("Failed to load data", error);
+        }
+    };
+
     useEffect(() => {
         if (user) {
             loadData();
@@ -71,26 +101,7 @@ export default function Dashboard() {
         };
     }, [isWorking]);
 
-    const loadData = async () => {
-        if (!user) return;
 
-        try {
-            const userRecords = await storage.getRecords(user.id);
-            setRecords(userRecords);
-
-            // Check if currently working (last record has no checkOut)
-            const last = userRecords[userRecords.length - 1];
-            if (last && !last.checkOut) {
-                setCurrentRecord(last);
-            } else {
-                setCurrentRecord(null);
-            }
-
-            setWeeklyMinutes(timeUtils.getWeeklyHours(userRecords));
-        } catch (error) {
-            console.error("Failed to load data", error);
-        }
-    };
 
     const handleScan = async (data) => {
         console.log('📷 [1/7] handleScan called with data:', data);
@@ -189,15 +200,16 @@ export default function Dashboard() {
                 </div>
             )}
 
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <div className="animate-fade-in">
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>Hi, {user?.name}</h1>
-                    <p style={{ color: 'var(--text-muted)', margin: 0 }}>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            <header className="dashboard-header animate-fade-in">
+                <div className="header-content">
+                    <h1 className="header-title">Hi, {user?.name.split(' ')[0]}</h1>
+                    <p className="header-subtitle">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }} className="animate-fade-in">
-                    <button onClick={() => setShowQRModal(true)} className="btn btn-secondary" title="Show My QR Code">
+
+                <div className="header-actions">
+                    <button onClick={() => setShowQRModal(true)} className="btn btn-secondary" title="Show My QR Code" style={{ flexGrow: 1, justifyContent: 'center' }}>
                         <QrCode size={18} />
-                        <span style={{ marginLeft: '0.5rem', display: 'none', '@media (min-width: 640px)': { display: 'inline' } }}>My Code</span>
+                        <span className="hidden-mobile" style={{ marginLeft: '0.5rem' }}>My Code</span>
                     </button>
                     <button onClick={() => setShowReportModal(true)} className="btn btn-secondary" title="Download Reports">
                         <FileText size={18} />
@@ -213,9 +225,10 @@ export default function Dashboard() {
 
             {/* Status Card */}
             <div className="card animate-fade-in" style={{
-                marginBottom: '2rem',
+                marginBottom: '1.5rem',
                 textAlign: 'center',
                 borderTop: `4px solid ${isWorking ? 'var(--success)' : 'var(--text-muted)'}`,
+                maxWidth: '100%', // Ensure it doesn't overflow container
             }}>
                 <div style={{ marginBottom: '1rem' }}>
                     <span className={`status-badge ${isWorking ? 'working' : 'not-working'}`}>
@@ -223,7 +236,7 @@ export default function Dashboard() {
                     </span>
                 </div>
 
-                <h2 style={{ fontSize: '3.5rem', fontWeight: '800', margin: '0.5rem 0', letterSpacing: '-1px' }}>
+                <h2 style={{ fontSize: '3rem', fontWeight: '800', margin: '0.5rem 0', letterSpacing: '-1px' }}>
                     {isWorking ? timeUtils.formatTime(currentRecord.checkIn) : '--:--'}
                 </h2>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
@@ -232,11 +245,12 @@ export default function Dashboard() {
 
                 {/* Main Action Area */}
                 <div style={{
-                    margin: '2rem auto',
+                    margin: '1.5rem auto',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    maxWidth: '400px'
+                    maxWidth: '100%', // Ensure inner content fits
+                    width: '100%'
                 }}>
 
                     {isScanning ? (
@@ -247,7 +261,7 @@ export default function Dashboard() {
                         <>
                             {/* QR Show Wrapper */}
                             <div style={{
-                                background: 'white',
+                                background: 'var(--surface-inner)',
                                 padding: '1rem',
                                 borderRadius: 'var(--radius-lg)',
                                 border: '1px solid #e2e8f0',
@@ -258,7 +272,7 @@ export default function Dashboard() {
                                     value={JSON.stringify({
                                         uid: user?.id,
                                         action: isWorking ? 'out' : 'in',
-                                        ts: Date.now()
+                                        ts: qrTimestamp
                                     })}
                                     size={160}
                                 />
@@ -325,7 +339,7 @@ export default function Dashboard() {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '0.75rem',
-                            background: 'var(--surface-light)',
+                            background: 'var(--surface-inner)',
                             borderRadius: 'var(--radius-md)',
                             transition: 'background-color 0.2s'
                         }}>
@@ -353,7 +367,7 @@ export default function Dashboard() {
                 title="My Employee QR Code"
             >
                 <div style={{ textAlign: 'center', padding: '1rem' }}>
-                    <div style={{ background: 'white', padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'inline-block', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ background: 'var(--surface-inner)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'inline-block', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
                         <QRCodeCanvas value={user?.id || 'unknown'} size={250} />
                     </div>
                     <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>

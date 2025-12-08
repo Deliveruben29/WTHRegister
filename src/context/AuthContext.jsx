@@ -8,68 +8,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [configError, setConfigError] = useState(false);
 
-    useEffect(() => {
-        if (!supabase) {
-            console.error('Supabase client not initialized. Check Env Vars.');
-            setConfigError(true);
-            setLoading(false);
-            return;
-        }
-
-        let mounted = true;
-
-        const checkSession = async () => {
-            try {
-                // No timeout - let it load naturally in background
-                const { data } = await supabase.auth.getSession();
-
-                if (mounted && data?.session?.user) {
-                    const profile = await getProfile(data.session.user);
-                    if (mounted) {
-                        setUser({
-                            ...data.session.user,
-                            name: profile?.name || data.session.user.email,
-                            weeklyHours: profile?.weekly_hours || 40
-                        });
-                    }
-                }
-            } catch (err) {
-                console.warn("Session check failed:", err.message);
-                // App continues to work - user just stays logged out
-                if (mounted) setUser(null);
-            }
-        };
-
-        // Show UI immediately - don't block on session check
-        setLoading(false);
-
-        // Load session in background
-        checkSession();
-
-        // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (!mounted) return;
-
-            if (session?.user) {
-                const profile = await getProfile(session.user);
-                if (mounted) {
-                    setUser({
-                        ...session.user,
-                        name: profile?.name || session.user.email,
-                        weeklyHours: profile?.weekly_hours || 40
-                    });
-                }
-            } else {
-                setUser(null);
-            }
-        });
-
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-        };
-    }, []);
-
     const getProfile = async (user) => {
         if (!supabase) return null;
         try {
@@ -89,6 +27,96 @@ export const AuthProvider = ({ children }) => {
             return null;
         }
     };
+
+    useEffect(() => {
+        if (!supabase) {
+            console.error('Supabase client not initialized. Check Env Vars.');
+            setConfigError(true);
+            setLoading(false);
+            return;
+        }
+
+        let mounted = true;
+
+        // Force stop loading after 5 seconds to prevent infinite hang (fail-open)
+        const loadingTimeout = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('⚠️ [Auth] Session check timed out, forcing login screen');
+                setLoading(false);
+            }
+        }, 5000);
+
+        const initSession = async () => {
+            try {
+                // 1. Get initial session
+                const { data, error } = await supabase.auth.getSession();
+
+                if (error) {
+                    console.warn("Session check error:", error.message);
+                    throw error;
+                }
+
+                if (mounted && data?.session?.user) {
+                    try {
+                        const profile = await getProfile(data.session.user);
+                        if (mounted) {
+                            setUser({
+                                ...data.session.user,
+                                name: profile?.name || data.session.user.email,
+                                weeklyHours: profile?.weekly_hours || 40
+                            });
+                        }
+                    } catch (profileErr) {
+                        console.error("Profile load failed, force clearing session:", profileErr);
+                        await supabase.auth.signOut(); // CRITICAL: Kill bad session
+                        if (mounted) setUser(null);
+                    }
+                }
+            } catch (err) {
+                console.warn("Session initialization failed:", err);
+                if (mounted) setUser(null);
+            } finally {
+                if (mounted) setLoading(false);
+                clearTimeout(loadingTimeout);
+            }
+        };
+
+        // 2. Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log(`Auth event: ${event}`);
+            if (!mounted) return;
+
+            if (session?.user) {
+                // If we already have this user loaded with profile data, skip refetching unless it's a specific update event
+                // But for safety/consistency, we do a quick profile fetch or just use what we have if optimizing.
+                // We'll trust the event source for user object but refresh profile to be safe.
+                const profile = await getProfile(session.user);
+
+                if (mounted) {
+                    setUser({
+                        ...session.user,
+                        name: profile?.name || session.user.email,
+                        weeklyHours: profile?.weekly_hours || 40
+                    });
+                    setLoading(false); // Valid info received, open gates
+                }
+            } else {
+                // Signed out
+                setUser(null);
+                setLoading(false); // Valid info received, open gates
+            }
+        });
+
+        initSession();
+
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+            clearTimeout(loadingTimeout);
+        };
+    }, []);
+
+
 
     const login = async (email, password) => {
         console.log('🔐 [1/6] Login function called for:', email);
