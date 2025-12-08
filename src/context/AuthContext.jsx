@@ -20,16 +20,8 @@ export const AuthProvider = ({ children }) => {
 
         const checkSession = async () => {
             try {
-                // Force timeout after 30 seconds to prevent hanging
-                // This allows for cold starts and slow network connections
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Session check timeout')), 30000)
-                );
-
-                const { data } = await Promise.race([
-                    supabase.auth.getSession(),
-                    timeoutPromise
-                ]);
+                // No timeout - let it load naturally in background
+                const { data } = await supabase.auth.getSession();
 
                 if (mounted && data?.session?.user) {
                     const profile = await getProfile(data.session.user);
@@ -43,14 +35,15 @@ export const AuthProvider = ({ children }) => {
                 }
             } catch (err) {
                 console.warn("Session check failed:", err.message);
-                // Don't block the app - just log as not authenticated
-                // This allows users to still see the login page
+                // App continues to work - user just stays logged out
                 if (mounted) setUser(null);
-            } finally {
-                if (mounted) setLoading(false);
             }
         };
 
+        // Show UI immediately - don't block on session check
+        setLoading(false);
+
+        // Load session in background
         checkSession();
 
         // Listen for changes
@@ -69,7 +62,6 @@ export const AuthProvider = ({ children }) => {
             } else {
                 setUser(null);
             }
-            setLoading(false);
         });
 
         return () => {
