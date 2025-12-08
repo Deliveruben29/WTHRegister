@@ -20,9 +20,10 @@ export const AuthProvider = ({ children }) => {
 
         const checkSession = async () => {
             try {
-                // Force timeout after 15 seconds to prevent hanging (allows for cold starts)
+                // Force timeout after 30 seconds to prevent hanging
+                // This allows for cold starts and slow network connections
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Session check timeout')), 15000)
+                    setTimeout(() => reject(new Error('Session check timeout')), 30000)
                 );
 
                 const { data } = await Promise.race([
@@ -41,8 +42,9 @@ export const AuthProvider = ({ children }) => {
                     }
                 }
             } catch (err) {
-                console.error("Session check failed:", err);
-                // On error/timeout, we just settle as logged out so the user sees the UI
+                console.warn("Session check failed:", err.message);
+                // Don't block the app - just log as not authenticated
+                // This allows users to still see the login page
                 if (mounted) setUser(null);
             } finally {
                 if (mounted) setLoading(false);
