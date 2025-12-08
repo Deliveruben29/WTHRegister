@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: wth-register
+    runtime: node
+    region: frankfurt  # o oregon/singapore según tu ubicación
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: VITE_SUPABASE_URL
+        sync: false  # Debes configurarlo manualmente en el dashboard
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false  # Debes configurarlo manualmente en el dashboard
+    healthCheckPath: /
