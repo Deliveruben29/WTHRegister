@@ -72,43 +72,110 @@ export const AuthProvider = ({ children }) => {
 
     const getProfile = async (user) => {
         if (!supabase) return null;
-        const { data } = await supabase
-            .from('profiles')
-            .select('name, weekly_hours')
-            .eq('id', user.id)
-            .single();
-        return data;
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('name, weekly_hours')
+                .eq('id', user.id)
+                .single();
+
+            if (error) {
+                console.warn('Profile fetch error (ignoring):', error.message);
+                return null;
+            }
+            return data;
+        } catch (e) {
+            console.error('Profile fetch exception:', e);
+            return null;
+        }
     };
 
     const login = async (email, password) => {
-        if (!supabase) return { success: false, error: { message: 'System not configured' } };
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        return { success: !error, error };
+        console.log('🔐 [1/6] Login function called for:', email);
+
+        if (!supabase) {
+            console.error('❌ [2/6] Supabase not initialized');
+            return { success: false, error: { message: 'System not configured' } };
+        }
+
+        console.log('✅ [2/6] Supabase client OK');
+
+        try {
+            console.log('⏳ [3/6] Calling signInWithPassword...');
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            console.log('⌛ [4/6] signInWithPassword returned');
+
+            if (error) {
+                console.error('❌ [5/6] Login error:', error.message, error);
+                return { success: false, error };
+            }
+
+            if (data?.user) {
+                console.log('✅ [5/6] Login successful!');
+                console.log('   User:', data.user.email);
+                console.log('   Email confirmed at:', data.user.email_confirmed_at);
+                console.log('   User ID:', data.user.id);
+                return { success: true, error: null };
+            }
+
+            console.warn('⚠️ [5/6] No error but no user either', data);
+            return { success: false, error: { message: 'No user data returned' } };
+
+        } catch (e) {
+            console.error('💥 [EXCEPTION] Login threw an error:', e);
+            return { success: false, error: { message: e.message || 'Login failed' } };
+        }
     };
 
     const register = async (name, email, password) => {
-        if (!supabase) return false;
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: { name }
-            }
-        });
+        console.log('📝 [1/5] Register function called for:', email);
 
-        if (error) {
-            console.error('Registration error:', error.message);
+        if (!supabase) {
+            console.error('❌ [2/5] Supabase not initialized');
             return false;
         }
 
-        // If email confirmation is enabled, data.session might be null even if successful.
-        // We consider it a success so the UI can redirect or show a message.
-        return true;
+        console.log('✅ [2/5] Supabase client OK');
+
+        try {
+            console.log('⏳ [3/5] Calling signUp...');
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { name }
+                }
+            });
+            console.log('⌛ [4/5] signUp returned');
+
+            if (error) {
+                console.error('❌ [5/5] Registration error:', error.message, error);
+                return false;
+            }
+
+            console.log('✅ [5/5] Registration successful!');
+            console.log('   User:', data.user?.email);
+            console.log('   Session:', data.session ? 'Created' : 'null (email confirmation required)');
+
+            // If email confirmation is enabled, data.session might be null even if successful.
+            // We consider it a success so the UI can redirect or show a message.
+            return true;
+
+        } catch (e) {
+            console.error('💥 [EXCEPTION] Registration threw an error:', e);
+            return false;
+        }
     };
 
     const logout = async () => {
-        if (!supabase) return;
+        console.log('🚪 [1/3] Logout function called');
+        if (!supabase) {
+            console.error('❌ [2/3] Supabase not initialized');
+            return;
+        }
+        console.log('⏳ [2/3] Calling signOut...');
         await supabase.auth.signOut();
+        console.log('✅ [3/3] SignOut successful, clearing user state');
         setUser(null);
     };
 

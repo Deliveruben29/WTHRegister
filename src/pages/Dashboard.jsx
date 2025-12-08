@@ -93,29 +93,46 @@ export default function Dashboard() {
     };
 
     const handleScan = async (data) => {
-        if (!user) return;
+        console.log('📷 [1/7] handleScan called with data:', data);
+
+        if (!user) {
+            console.error('❌ [2/7] No user found, aborting scan');
+            return;
+        }
+
+        console.log('✅ [2/7] User OK:', user.id);
 
         const now = new Date().toISOString();
         let message = '';
 
         try {
             if (currentRecord) {
+                console.log('⏳ [3/7] Checking OUT (currentRecord exists)');
+                console.log('   Current record:', currentRecord);
                 // Check Out
                 const updated = { ...currentRecord, checkOut: now };
+                console.log('⏳ [4/7] Calling storage.updateLastRecord...');
                 await storage.updateLastRecord(user.id, updated);
+                console.log('✅ [5/7] Record updated successfully');
                 message = `Checked Out at ${timeUtils.formatTime(now)}`;
             } else {
+                console.log('⏳ [3/7] Checking IN (no currentRecord)');
                 // Check In
                 const newRecord = { checkIn: now, checkOut: null };
+                console.log('⏳ [4/7] Calling storage.saveRecord...');
                 await storage.saveRecord(user.id, newRecord);
+                console.log('✅ [5/7] Record saved successfully');
                 message = `Checked In at ${timeUtils.formatTime(now)}`;
             }
 
+            console.log('✅ [6/7] Setting toast and closing scanner');
             setToast(message);
             setIsScanning(false);
+            console.log('⏳ [7/7] Reloading data...');
             loadData(); // Reload to get freshness (and IDs)
+            console.log('✅ [7/7] Scan process completed successfully!');
         } catch (error) {
-            console.error("Scan error:", error);
+            console.error("💥 [EXCEPTION] Scan error:", error);
             setToast("Error saving record. Try again.");
         }
     };

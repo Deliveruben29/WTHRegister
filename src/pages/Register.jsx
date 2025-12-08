@@ -14,14 +14,18 @@ export default function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        console.log('🚀 [Register.jsx] Form submitted, calling register function...');
         const success = await register(name, email, password);
+        console.log('🚀 [Register.jsx] Register function returned:', success);
         if (success) {
+            console.log('🚀 [Register.jsx] Registration successful, navigating to /login');
             // Check if user is logged in automatically (Supabase default behavior depends on settings)
             // But we navigate to login to be safe or explain check email.
             // Actually, if auto-sign-in is enabled, AuthContext will update 'user' and we redirect?
             // Let's redirect to login for now, or check if we need to show a message.
             navigate('/login');
         } else {
+            console.log('🚀 [Register.jsx] Registration failed, showing error');
             setError('Error creating account. User might already exist.');
         }
     };
