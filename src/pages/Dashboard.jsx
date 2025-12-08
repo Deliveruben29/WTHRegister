@@ -19,7 +19,7 @@ const THEME_COLORS = [
 ];
 
 export default function Dashboard() {
-    const { user, logout } = useAuth();
+    const { user, logout, updateWeeklyHours } = useAuth();
     const [isScanning, setIsScanning] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -29,6 +29,7 @@ export default function Dashboard() {
     const [currentRecord, setCurrentRecord] = useState(null);
     const [weeklyMinutes, setWeeklyMinutes] = useState(0);
     const [toast, setToast] = useState(null);
+    const [weeklyHoursInput, setWeeklyHoursInput] = useState(user?.weeklyHours || 40);
 
     useEffect(() => {
         if (user) {
@@ -44,8 +45,17 @@ export default function Dashboard() {
         }
     }, [toast]);
 
+    // Sync weeklyHoursInput when user.weeklyHours changes
+    useEffect(() => {
+        if (user?.weeklyHours) {
+            setWeeklyHoursInput(user.weeklyHours);
+        }
+    }, [user?.weeklyHours]);
+
+
     const isWorking = !!currentRecord;
-    const overtimeMinutes = Math.max(0, weeklyMinutes - (40 * 60));
+    const userWeeklyHours = user?.weeklyHours || 40;
+    const overtimeMinutes = Math.max(0, weeklyMinutes - (userWeeklyHours * 60));
 
     // Effect for Surrealist Time Dilation Mode
     useEffect(() => {
@@ -114,6 +124,23 @@ export default function Dashboard() {
         document.documentElement.style.setProperty('--primary', color);
         localStorage.setItem('theme-primary', color);
     };
+
+    const handleUpdateWeeklyHours = async () => {
+        const hours = parseInt(weeklyHoursInput);
+
+        if (isNaN(hours) || hours < 1 || hours > 168) {
+            setToast('Please enter valid hours (1-168)');
+            return;
+        }
+
+        const result = await updateWeeklyHours(hours);
+        if (result.success) {
+            setToast(`Weekly hours updated to ${hours}h!`);
+        } else {
+            setToast('Error updating hours. Try again.');
+        }
+    };
+
 
     const handleDownloadReport = (type) => {
         if (records.length === 0) {
@@ -246,10 +273,10 @@ export default function Dashboard() {
                     </div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
                         {timeUtils.formatDuration(weeklyMinutes)}
-                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 'normal' }}> / 40h</span>
+                        <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 'normal' }}> / {userWeeklyHours}h</span>
                     </div>
                     <div style={{ marginTop: '0.5rem', height: '6px', background: 'var(--surface-light)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, (weeklyMinutes / (40 * 60)) * 100)}%`, height: '100%', background: 'var(--primary)', transition: 'width 1s ease-out' }}></div>
+                        <div style={{ width: `${Math.min(100, (weeklyMinutes / (userWeeklyHours * 60)) * 100)}%`, height: '100%', background: 'var(--primary)', transition: 'width 1s ease-out' }}></div>
                     </div>
                 </div>
 
@@ -388,36 +415,80 @@ export default function Dashboard() {
                 onClose={() => setShowSettingsModal(false)}
                 title="Customize App"
             >
-                <div style={{ padding: '1rem' }}>
-                    <p style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Choose a theme color:</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                        {THEME_COLORS.map(color => (
-                            <button
-                                key={color.name}
-                                onClick={() => handleThemeChange(color.value)}
+                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                    {/* Weekly Hours Setting */}
+                    <div>
+                        <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Clock size={18} color="var(--primary)" />
+                            Official Weekly Hours
+                        </h4>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            Set your contracted weekly hours. Overtime will be calculated based on this value.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <input
+                                type="number"
+                                min="1"
+                                max="168"
+                                value={weeklyHoursInput}
+                                onChange={(e) => setWeeklyHoursInput(e.target.value)}
                                 style={{
-                                    height: '3rem',
+                                    flex: 1,
+                                    padding: '0.75rem',
                                     borderRadius: 'var(--radius-md)',
-                                    backgroundColor: color.value,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '0.8rem',
-                                    fontWeight: '500',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                    border: '1px solid var(--border)',
+                                    fontSize: '1rem',
+                                    fontWeight: '600'
                                 }}
-                                title={color.name}
-                                className="hover-scale"
-                                onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                            />
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', minWidth: '60px' }}>hours/week</span>
+                            <button
+                                onClick={handleUpdateWeeklyHours}
+                                className="btn btn-primary"
+                                style={{ whiteSpace: 'nowrap' }}
                             >
-                                {color.name}
+                                Save
                             </button>
-                        ))}
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                            Current: {userWeeklyHours}h/week
+                        </p>
+                    </div>
+
+                    {/* Theme Color Setting */}
+                    <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0' }}>Theme Color</h4>
+                        <p style={{ marginBottom: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Choose your preferred accent color:</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                            {THEME_COLORS.map(color => (
+                                <button
+                                    key={color.name}
+                                    onClick={() => handleThemeChange(color.value)}
+                                    style={{
+                                        height: '3rem',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: color.value,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '500',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                    title={color.name}
+                                    className="hover-scale"
+                                    onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                                    onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                                >
+                                    {color.name}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </Modal>

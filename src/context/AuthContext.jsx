@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }) => {
                     if (mounted) {
                         setUser({
                             ...data.session.user,
-                            name: profile?.name || data.session.user.email
+                            name: profile?.name || data.session.user.email,
+                            weeklyHours: profile?.weekly_hours || 40
                         });
                     }
                 }
@@ -57,7 +58,11 @@ export const AuthProvider = ({ children }) => {
             if (session?.user) {
                 const profile = await getProfile(session.user);
                 if (mounted) {
-                    setUser({ ...session.user, name: profile?.name || session.user.email });
+                    setUser({
+                        ...session.user,
+                        name: profile?.name || session.user.email,
+                        weeklyHours: profile?.weekly_hours || 40
+                    });
                 }
             } else {
                 setUser(null);
@@ -75,7 +80,7 @@ export const AuthProvider = ({ children }) => {
         if (!supabase) return null;
         const { data } = await supabase
             .from('profiles')
-            .select('name')
+            .select('name, weekly_hours')
             .eq('id', user.id)
             .single();
         return data;
@@ -121,6 +126,28 @@ export const AuthProvider = ({ children }) => {
         return { success: !error, error };
     };
 
+    const updateWeeklyHours = async (hours) => {
+        if (!supabase || !user) return { success: false, error: { message: 'Not authenticated' } };
+
+        // Validate hours (1-168 hours per week)
+        if (hours < 1 || hours > 168) {
+            return { success: false, error: { message: 'Hours must be between 1 and 168' } };
+        }
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ weekly_hours: hours })
+            .eq('id', user.id);
+
+        if (!error) {
+            // Update local user state
+            setUser({ ...user, weeklyHours: hours });
+        }
+
+        return { success: !error, error };
+    };
+
+
     if (configError) {
         return (
             <div style={{ color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', textAlign: 'center' }}>
@@ -156,7 +183,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, resetPassword, loading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, resetPassword, updateWeeklyHours, loading }}>
             {children}
         </AuthContext.Provider>
     );
