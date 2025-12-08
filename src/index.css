@@ -341,12 +341,14 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  z-index: 2000;
+  z-index: 10000;
+  /* Always on top */
   border: 1px solid #e2e8f0;
   animation: slideDownFade 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   font-weight: 600;
   backdrop-filter: blur(8px);
 }
+
 
 /* Utilities */
 .container {

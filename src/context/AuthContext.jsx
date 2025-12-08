@@ -20,9 +20,9 @@ export const AuthProvider = ({ children }) => {
 
         const checkSession = async () => {
             try {
-                // Force timeout after 5 seconds to prevent hanging (VPN/Network issues)
+                // Force timeout after 15 seconds to prevent hanging (allows for cold starts)
                 const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Session check timeout')), 5000)
+                    setTimeout(() => reject(new Error('Session check timeout')), 15000)
                 );
 
                 const { data } = await Promise.race([
